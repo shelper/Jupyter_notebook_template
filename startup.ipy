@@ -1,0 +1,10 @@
+%load_ext autoreload
+%autoreload 2
+%load_ext version_information
+
+import better_exceptions
+import numpy as np
+import matplotlib.pyplot as plt
+
+import sys
+sys.path.append("./src")
