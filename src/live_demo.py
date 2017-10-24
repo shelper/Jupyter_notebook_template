@@ -1,11 +1,12 @@
-import serial
-import numpy as np
-from PIL import Image
-import matplotlib.pyplot as plt
 import os
 import glob
-import cv2
+
+import serial
+import numpy as np
+import matplotlib.pyplot as plt
 from scipy.signal import savgol_filter, medfilt
+# from PIL import Image
+# import cv2
 
 plt.ion()
 
@@ -173,7 +174,7 @@ while True:
             if size > pix_num:
                 offset = size - size // pix_num * pix_num
                 img = img[offset:].reshape(size // pix_num, pix_num)
-                # plt.imshow(img, vmin=0, vmax=135);plt.show()
+                plt.imshow(img, vmin=0, vmax=135);plt.show()
                 # print(img.shape)
                 # img = img[:2000,:]
                 if reverse:

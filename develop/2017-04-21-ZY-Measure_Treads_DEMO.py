@@ -1,7 +1,8 @@
 
 # coding: utf-8
 
-# In[48]:
+# In[11]:
+
 
 import os
 import glob
@@ -10,12 +11,12 @@ import numpy as  np
 from scipy.signal import savgol_filter, medfilt
 import matplotlib.pyplot as plt
 
-get_ipython().magic('matplotlib inline')
+get_ipython().run_line_magic('matplotlib', 'notebook')
 # configurations that used in the treads detection algorithm
 # raw image params
 reverse, thresh, bg_level = True, 20.0, 130.0
 # system params
-baseline, sensor2baseline_offset, d0 = 8.69, 1.0, 6.0
+baseline, sensor2baseline_offset, d0 = 10.067, 1.25, 5.549
 row_num, pix_num, pix_size = 1000, 1500, 0.0055
 # tread params
 win_size, edge_size, edge_expand = 30, 10, 15
@@ -24,10 +25,11 @@ min_treads_score = 0.5
 # profile smoothing params for Savitzky–Golay smoothing 
 spike_size, filt_size, fit_order = 2, 11, 3
 
-img_file = r'C:\Users\MPNV38\ZDevelop\tiretread\data\SE655POC\from_Neeharika\17.bmp'
+img_file = r'C:\Users\MPNV38\ZDevelop\tiretread\data\SE655POC\from_Neeharika\07.bmp'
 
 
-# In[49]:
+# In[12]:
+
 
 def get_img(img_file, row_num, pix_num, reverse, thresh):
     if img_file[-3:] == 'raw':
@@ -46,10 +48,11 @@ def get_img(img_file, row_num, pix_num, reverse, thresh):
     return image
 
 img = get_img(img_file, row_num, pix_num, reverse, thresh)
-plt.imshow(img, vmin=0, vmax=130)
+plt.imshow(img, vmin=0, vmax=130, cmap='gray')
 
 
-# In[50]:
+# In[30]:
+
 
 def get_profile(image, spike_size, filt_size, fit_order):
     profile = (image) * np.arange(image.shape[1])
@@ -69,10 +72,13 @@ def get_profile(image, spike_size, filt_size, fit_order):
         plt.figure(); plt.plot(profile); plt.title('smoothed using savgol filter')
     return profile
 
-profile = get_profile(img, spike_size, filt_size, fit_order);
+profile = get_profile(img, spike_size, filt_size, fit_order)
+profile_diff = profile[:-edge_size] - profile[edge_size:]
+plt.figure();plt.plot(np.diff(profile_diff));plt.plot(profile_diff)
 
 
-# In[51]:
+# In[35]:
+
 
 def find_treads(profile_diff, edge_size,  win_size, max_treads_num, min_tread_width):
     n_sects = len(profile_diff) // win_size
@@ -149,10 +155,10 @@ def find_treads(profile_diff, edge_size,  win_size, max_treads_num, min_tread_wi
                 elif end == end0:
                     treads_edge.pop()
                     treads_edge.append([start, end])
-                # remove treads overlapping
-                elif start < end0:
-                    treads_edge.pop()
-                    treads_edge.append([max(start, start0), min(end, end0)])
+#                 # remove treads overlapping
+#                 elif start < end0:
+#                     treads_edge.pop()
+#                     treads_edge.append([max(start, start0), min(end, end0)])
                 else:
                     treads_edge.append([start, end])
 
@@ -182,22 +188,22 @@ def find_treads(profile_diff, edge_size,  win_size, max_treads_num, min_tread_wi
     
     return treads_edge
 
-profile_diff = profile[:-edge_size] - profile[edge_size:]
 treads_edge = find_treads(profile_diff, edge_size,  win_size, max_treads_num, min_tread_width)
 
-treads = np.zeros((treads_edge.shape[0], np.diff(treads_edge).max() + edge_expand * 2))
-for i, (s, e) in enumerate(treads_edge):
-    ss = s - edge_expand
-    ee = e + edge_expand
-    tread = profile[ss:ee]
-    pad_before = (treads.shape[1] - len(tread)) // 2
-    pad_after = treads.shape[1] - len(tread) - pad_before
-    treads[i] = np.pad(tread, (pad_before, pad_after), 'edge')
+# treads = np.zeros((treads_edge.shape[0], np.diff(treads_edge).max() + edge_expand * 2))
+# for i, (s, e) in enumerate(treads_edge):
+#     ss = s - edge_expand
+#     ee = e + edge_expand
+#     tread = profile[ss:ee]
+#     pad_before = (treads.shape[1] - len(tread)) // 2
+#     pad_after = treads.shape[1] - len(tread) - pad_before
+#     treads[i] = np.pad(tread, (pad_before, pad_after), 'edge')
     
 plt.figure();plt.plot(treads.T); plt.title('raw treads')
 
 
-# In[36]:
+# In[32]:
+
 
 def calibrate_treads(profile, treads_edge, pix_size, edge_expand):
     treads_num = treads_edge.shape[0]
@@ -220,7 +226,8 @@ treads = calibrate_treads(profile, treads_edge, pix_size, edge_expand)
 plt.figure();plt.plot(treads.T); plt.title('after calibration of treads')
 
 
-# In[40]:
+# In[33]:
+
 
 def get_treads_score(profile_diff, treads_depth, treads_edge, edge_size):
     w1, w2, w3 = 1, -1, -1
@@ -256,7 +263,8 @@ picked_treads_edge = treads_edge[picked_treads_idx]
 plt.figure();plt.plot(picked_treads.T); plt.title('top picked treads'); plt.legend(picked_treads_score)
 
 
-# In[16]:
+# In[34]:
+
 
 resized_img = np.flipud(img[:, int(profile.min()):int(profile.max())].T)
 plt.figure()
@@ -279,9 +287,4 @@ if len(treads):
     plt.legend(picked_treads_score)
 
 # plt.savefig(os.path.join(os.path.split(img_file)[0], 'profile', os.path.basename(img_file) + '.png'))
-
-
-# In[ ]:
-
-
 

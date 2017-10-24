@@ -1,7 +1,8 @@
 
 # coding: utf-8
 
-# In[47]:
+# In[1]:
+
 
 import os
 import glob
@@ -9,12 +10,13 @@ import cv2
 import numpy as  np
 from scipy.signal import savgol_filter, medfilt
 import matplotlib.pyplot as plt
+plt.ion()
 
 # configurations that used in the treads detection algorithm
 # raw image params
 reverse, thresh, bg_level = True, 20.0, 130.0
 # system params
-baseline, sensor2baseline_offset, d0 = 8.69, 1.0, 6.0
+baseline, sensor2baseline_offset, d0 = 10.067, 1.25, 5.549
 row_num, pix_num, pix_size = 1000, 1500, 0.0055
 # tread params
 win_size, edge_size, edge_expand = 30, 10, 5
@@ -162,8 +164,21 @@ def get_treads_score(profile_diff, treads_depth, idx_peaks_dips):
     return treads_score
    
 
+
+# In[4]:
+
+
 folder = r'C:\Users\MPNV38\ZDevelop\tiretread\data\SE655POC\from_Neeharika'
-files = glob.glob(os.path.join(folder, '*.bmp'))
+files = glob.glob(os.path.join(folder, '07.bmp'))
+img = get_img(files[0], row_num, pix_num, reverse=reverse, thresh=thresh)
+profile = get_profile(img, spike_size, filt_size, fit_order)
+
+
+# In[27]:
+
+
+folder = r'C:\Users\MPNV38\ZDevelop\tiretread\data\SE655POC\from_Neeharika'
+files = glob.glob(os.path.join(folder, '07.bmp'))
 
 for i, img_file in enumerate(files[:]):
     img = get_img(img_file, row_num, pix_num, reverse=reverse, thresh=thresh)
@@ -178,15 +193,21 @@ for i, img_file in enumerate(files[:]):
     treads_score = get_treads_score(profile_diff, treads_depth, idx_peaks_dips)
     picked_treads_idx = (treads_score.argsort())[-treads_num:]
     picked_treads_idx = picked_treads_idx[treads_score[picked_treads_idx] > min_treads_score]
+    picked_treads_idx.sort()
+    
     picked_treads = treads[picked_treads_idx]
     picked_treads_depth = treads_depth[picked_treads_idx]
     picked_treads_score = treads_score[picked_treads_idx]
     picked_treads_edge = treads_edge[picked_treads_idx]
     
+    tread_legend = []
+    for i, d in zip(picked_treads_idx, picked_treads_depth):
+        tread_legend.append('T{:d} : {:.0f}/32'.format(i + 1, d * 32/ 25.4))
+        
     resized_img = np.flipud(img[:, int(profile.min()):int(profile.max())].T)
     plt.figure()
     plt.subplot(311)
-    plt.imshow(resized_img, aspect=0.1 * resized_img.shape[1]/resized_img.shape[0])
+    plt.imshow(resized_img, aspect=0.1 * resized_img.shape[1]/resized_img.shape[0], vmax=100)
     
     plt.subplot(312)
     plt.plot(profile)
@@ -201,7 +222,8 @@ for i, img_file in enumerate(files[:]):
     plt.subplot(313)
     if len(treads):
         plt.plot(picked_treads.T)
-        plt.legend(picked_treads_score)
+        plt.legend(tread_legend)
+#         plt.legend([''.join(("tread depth:", "%.2f" % x, "mm")) for x in picked_treads_depth])
     
     plt.show()
 #     plt.savefig(os.path.join(folder, "profiles", os.path.basename(img_file) + '.png'))
@@ -209,7 +231,8 @@ for i, img_file in enumerate(files[:]):
         plt.close('all')
 
 
-# In[ ]:
+# In[15]:
 
 
+get_ipython().run_line_magic('matplotlib', '')
 

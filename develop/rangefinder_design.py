@@ -1,9 +1,9 @@
 
 # coding: utf-8
 
-# In[1]:
+# In[8]:
 
-get_ipython().magic('qtconsole --style monokai')
+get_ipython().magic('matplotlib notebook')
 
 
 # ## setup of the system
@@ -26,7 +26,7 @@ get_ipython().magic('qtconsole --style monokai')
 # for default setups we will get 109mv voltage output, or about 1/9 of the dynamic range 
 # 
 
-# In[12]:
+# In[3]:
 
 import numpy as np
 from sympy import *
@@ -36,14 +36,14 @@ import ipywidgets as widgets
 from IPython.display import display
 
 
-# In[26]:
+# In[4]:
 
 # system parameters
 f = 7.9  # mm
 fov = 54 # unit degree
 
 
-# In[27]:
+# In[5]:
 
 w_baseline = widgets.FloatSlider(min=5, max=15, step=0.5, value=5, readout=False)
 w_d0 = widgets.Label("foo")
@@ -164,30 +164,40 @@ plt.show()
 # The optical diagram of a range finder setup for tire tread depth measurements is shown below, assume baseline (b), lens focal length (f), we can calculate what is the combination of b and f can give the best focus for all distances.
 # ![fig.2 SE655 based system setup](../figures/RangeFinderDesignDimensions.png)
 
-# In[139]:
+# a simulation on what lens tilt angle (a0) and baseline (b) makes the focus on the sensor to be consistantly sharp across the whole range
+# 
+
+# In[75]:
 
 f = 5.37
-a0 = np.radians(29)
-b = 10
+# a0 = np.radians(29)
+# b = 10
 
-plt.figure()
-for b in [10, 10.5, 11, 11.5]:
-# for a0 in np.linspace(np.radians(27), np.radians(35), 9):
-#     t = b*f/(np.tan(a0)*(b/np.sin(a0) - f))*np.cos(a0)
-    d10 = b/np.sin(a0)
-    d20 = 1/(1/f - 1/d10)
-    t = d20 * np.cos(a0)
-    # for b in np.arange(8, 10.1, 0.1):
-    fs = []
-    for a in np.linspace(a0-np.radians(10), a0+np.radians(10), 20):
-        d1 = b/np.sin(a) * np.cos(a - a0)
-        d2 = t/np.cos(a) * np.cos(a - a0)
-        fs.append(d1*d2/(d1+d2))
-    plt.plot(fs)
+for b in [10.2]:
+# for b in np.linspace(8, 10, 5):
+    plt.figure()
+#     for a0 in np.linspace(np.radians(27), np.radians(29), 3):
+    for a0 in [np.radians(29)]:
+    #     t = b*f/(np.tan(a0)*(b/np.sin(a0) - f))*np.cos(a0)
+        d10 = b/np.sin(a0)
+        d20 = 1/(1/f - 1/d10)
+        t = d20 * np.cos(a0)
+        # for b in np.arange(8, 10.1, 0.1):
+        fs = []
+        for a in np.linspace(a0-np.radians(10), a0+np.radians(10), 20):
+            d1 = b/np.sin(a) * np.cos(a - a0)
+            d2 = t/np.cos(a) * np.cos(a - a0)
+            fs.append(d1*d2/(d1+d2))
+        plt.plot(fs)
 
     
 # d2 = d0/np.
 # f = 5.37
+
+
+# In[7]:
+
+plt.show()
 
 
 # In[ ]:

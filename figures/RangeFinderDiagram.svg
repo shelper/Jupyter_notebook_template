@@ -1161,8 +1161,8 @@
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:zoom="1.979899"
-     inkscape:cx="596.46297"
-     inkscape:cy="464.48644"
+     inkscape:cx="262.82169"
+     inkscape:cy="504.89254"
      inkscape:document-units="px"
      inkscape:current-layer="layer2"
      showgrid="false"
@@ -1194,7 +1194,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
+        <dc:title />
       </cc:Work>
     </rdf:RDF>
   </metadata>
@@ -1898,7 +1898,7 @@
          y="53.19812"
          x="-199.04955"
          id="tspan21360"
-         sodipodi:role="line">f=</tspan></text>
+         sodipodi:role="line">t=</tspan></text>
     <text
        xml:space="preserve"
        style="font-style:normal;font-weight:normal;line-height:0%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
@@ -2024,37 +2024,37 @@
     <path
        inkscape:connector-curvature="0"
        id="path6257"
-       d="M 136.36638,228.02366 81.765154,336.73269"
+       d="M 136.468,228.15765 60.355623,379.21449"
        style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:0.99999994px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;marker-start:url(#marker6261);marker-end:url(#marker6637)" />
     <text
        xml:space="preserve"
        style="font-style:normal;font-weight:normal;line-height:0%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.9375px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-       x="97.152336"
-       y="278.90805"
+       x="100.79169"
+       y="274.16428"
        id="text8565"
        transform="scale(0.91075618,1.0979887)"><tspan
          sodipodi:role="line"
          id="tspan8563"
-         x="97.152336"
-         y="278.90805"
-         style="font-size:8.08525181px;line-height:1.25;stroke-width:0.9375px">d1</tspan></text>
+         x="100.79169"
+         y="274.16428"
+         style="font-size:8.08525181px;line-height:1.25;stroke-width:0.9375px">d10</tspan></text>
     <path
        style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:0.99999994px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;marker-start:url(#marker8583);marker-end:url(#marker8593)"
-       d="M 173.77695,154.57669 138.10457,225.0234"
+       d="m 176.16173,148.92176 -38.07439,76.07447"
        id="path8579"
        inkscape:connector-curvature="0" />
     <text
        transform="scale(0.91075618,1.0979887)"
        id="text9611"
-       y="150.52803"
-       x="176.92807"
+       y="155.27179"
+       x="173.28871"
        style="font-style:normal;font-weight:normal;line-height:0%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.9375px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
        xml:space="preserve"><tspan
          style="font-size:8.08525181px;line-height:1.25;stroke-width:0.9375px"
-         y="150.52803"
-         x="176.92807"
+         y="155.27179"
+         x="173.28871"
          id="tspan9609"
-         sodipodi:role="line">d2</tspan></text>
+         sodipodi:role="line">d20</tspan></text>
     <text
        xml:space="preserve"
        style="font-style:normal;font-weight:normal;line-height:0%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.9375px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
@@ -2069,42 +2069,82 @@
     <text
        xml:space="preserve"
        style="font-style:normal;font-weight:normal;line-height:0%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.9375px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-       x="248.77559"
-       y="152.29643"
+       x="251.61664"
+       y="124.3594"
        id="text9619"><tspan
          sodipodi:role="line"
          id="tspan9617"
-         x="248.77559"
-         y="152.29643"
-         style="font-size:14.0625px;line-height:1.25;stroke-width:0.9375px">d1= b/sin(a) *cos(a-a0)</tspan><tspan
+         x="251.61664"
+         y="127.80737"
+         style="font-size:14.0625px;line-height:1.25;stroke-width:0.9375px"></tspan><tspan
          sodipodi:role="line"
-         x="248.77559"
-         y="169.87456"
+         x="251.61664"
+         y="137.18904"
          style="font-size:14.0625px;line-height:1.25;stroke-width:0.9375px"
-         id="tspan9621">d2= f/cos(a) *cos(a-a0)</tspan><tspan
+         id="tspan5765">d10= b/sin(a0) </tspan><tspan
          sodipodi:role="line"
-         x="248.77559"
-         y="187.45268"
+         x="251.61664"
+         y="145.38548"
+         style="font-size:14.0625px;line-height:1.25;stroke-width:0.9375px"
+         id="tspan5771" /><tspan
+         sodipodi:role="line"
+         x="251.61664"
+         y="145.38548"
+         style="font-size:14.0625px;line-height:1.25;stroke-width:0.9375px"
+         id="tspan5773" /><tspan
+         sodipodi:role="line"
+         x="251.61664"
+         y="154.76717"
+         style="font-size:14.0625px;line-height:1.25;stroke-width:0.9375px"
+         id="tspan5767">d20= f * d10/(f + d10)</tspan><tspan
+         sodipodi:role="line"
+         x="251.61664"
+         y="172.34529"
+         style="font-size:14.0625px;line-height:1.25;stroke-width:0.9375px"
+         id="tspan5777">t= d20 * cos(a0)</tspan><tspan
+         sodipodi:role="line"
+         x="251.61664"
+         y="189.92342"
+         style="font-size:14.0625px;line-height:1.25;stroke-width:0.9375px"
+         id="tspan5775"> </tspan><tspan
+         sodipodi:role="line"
+         x="251.61664"
+         y="207.50154"
+         style="font-size:14.0625px;line-height:1.25;stroke-width:0.9375px"
+         id="tspan5769">d1= b/sin(a) *cos(a-a0)</tspan><tspan
+         sodipodi:role="line"
+         x="251.61664"
+         y="215.69798"
+         style="font-size:14.0625px;line-height:1.25;stroke-width:0.9375px"
+         id="tspan9621"></tspan><tspan
+         sodipodi:role="line"
+         x="251.61664"
+         y="225.07967"
+         style="font-size:14.0625px;line-height:1.25;stroke-width:0.9375px"
+         id="tspan5763">d2= t/cos(a) *cos(a-a0)</tspan><tspan
+         sodipodi:role="line"
+         x="251.61664"
+         y="242.65779"
          style="font-size:14.0625px;line-height:1.25;stroke-width:0.9375px"
          id="tspan9623">1/d1 + 1/d2 = 1/f</tspan><tspan
          sodipodi:role="line"
-         x="248.77559"
-         y="205.03081"
+         x="251.61664"
+         y="260.23593"
          style="font-size:14.0625px;line-height:1.25;stroke-width:0.9375px"
          id="tspan9625">a0 = 28.2 deg, d1 = 16.92, d2 = 9.08</tspan><tspan
          sodipodi:role="line"
-         x="248.77559"
-         y="222.60893"
+         x="251.61664"
+         y="277.81406"
          style="font-size:14.0625px;line-height:1.25;stroke-width:0.9375px"
          id="tspan4929">a = 38.7deg, d1 = 12.6, d2 = 10.07</tspan><tspan
          sodipodi:role="line"
-         x="248.77559"
-         y="240.18706"
+         x="251.61664"
+         y="295.39218"
          style="font-size:14.0625px;line-height:1.25;stroke-width:0.9375px"
          id="tspan4931">a = 17.7deg, d1 = 25.81, d2=8.26</tspan><tspan
          sodipodi:role="line"
-         x="248.77559"
-         y="257.7652"
+         x="251.61664"
+         y="312.97031"
          style="font-size:14.0625px;line-height:1.25;stroke-width:0.9375px"
          id="tspan4925"> </tspan></text>
     <text
