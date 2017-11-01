@@ -1,18 +1,20 @@
 from tkinter import constants, filedialog, Button, Frame, Tk, Entry, Label, StringVar, ttk, IntVar, Checkbutton, messagebox, Checkbutton
-import serial
 import numpy as np
 import matplotlib.pyplot as plt
-import time
+import matplotlib as mpl
+
+import serial
+from serial.tools import list_ports
+# import time
 from tiretread import *
 
 # configurations that used in the treads detection algorithm
-CMD_START = b'!Z00010000'
-CMD_READALL = b'!Z00030000'
-CMD_READLINE = b'!Z0002'
-CMD_STREAMING = b'!Z00080000'
+CMD_CAPTUREFRAME = b'!Z00010000'
+CMD_CAPTURE1LINE = b'!Z00010001'
+CMD_DEBUGSWITCH = b'!Z00030000'
 
 # raw image params
-thresh = 0.0
+thresh = 30.0
 pix_num, pix_size = 1500, 0.0055
 # system params
 baseline, sensor2baseline_offset, d0 = 10.067, 0.47, 5.549
@@ -31,30 +33,71 @@ class FileDialog(Frame):
         Frame.__init__(self, root)
         pack_opt = {'fill': constants.BOTH, 'padx': 10, 'pady': 5}
 
-        self.acq_port = StringVar()
-        Label(self, text="Port").pack(side=constants.TOP, fill=constants.X)
-        Entry(self, textvariable=self.acq_port).pack(side=constants.TOP, fill=constants.X)
-        self.acq_port.set('COM11')
-        self.ser = serial.Serial()
+        self.img_file = StringVar()
+        Label(self, text="Save image as").pack(side=constants.TOP, fill=constants.X)
+        Entry(self, textvariable=self.img_file).pack(side=constants.TOP, fill=constants.X)
+        self.img_file.set('0001')
+
+        # self.acq_port = StringVar()
+        # Label(self, text="Port").pack(side=constants.TOP, fill=constants.X)
+        # Entry(self, textvariable=self.acq_port).pack(side=constants.TOP, fill=constants.X)
+        # self.acq_port.set(port_name)
+        # self.ser = serial.Serial()
+        # self.timeout = 3
 
         # self.pullfrom = os.path.abspath('./')
-        Button(self, text='Scan', relief=constants.GROOVE, 
-               font=('sans', '10', 'bold'), command=self.scan).pack(**pack_opt)
+        Button(self, text='LineScan', relief=constants.GROOVE, 
+               font=('sans', '10', 'bold'), command=self.line_scan).pack(**pack_opt)
 
-    def scan(self):
+        # self.pullfrom = os.path.abspath('./')
+        Button(self, text='FrameScan', relief=constants.GROOVE, 
+               font=('sans', '10', 'bold'), command=self.frame_scan).pack(**pack_opt)
+
+        self.baudrate = 115200
+        self.port = None
+        self.timeout = 3
+
+    def line_scan(self):
+        try:
+            self.port = next(list_ports.grep('ASF example \(COM')).device
+        except:
+            messagebox.showinfo("warning", "no COM port found for the device, check connection")
+            return
+
+        #%% acquire and display line in realtime
+        plt.figure('line')
+        with serial.Serial(self.port, self.baudrate, timeout=self.timeout) as ser:
+            # ser.write(CMD_DEBUGSWITCH)
+            while True:
+                ser.write(CMD_CAPTURE1LINE)
+                try:
+                    dummy_data = ser.read(2)
+                    line = np.fromstring(ser.read(1500), dtype='uint8')
+                    if not plt.fignum_exists('line'):
+                        break
+                    else:
+                        plt.cla()
+                        plt.plot(line)
+                        plt.pause(0.005)
+                except:
+                    break
+        if plt.fignum_exists('line'):
+            plt.close('line')
+
+    def frame_scan(self):
         if not self.ser.is_open: 
             self.ser.port = self.acq_port.get()
             self.ser.baudrate = 115200
             self.ser.timeout = 3
             self.ser.open()
-            self.ser.write(CMD_READALL)
+            self.ser.write(CMD_DEBUGSWITCH)
             # try:
             #     rser.open()
                 # except:
                 #     messagebox.showinfo("warning", "cannot open the com port, please check device manager")
                 #     return
         if self.ser.is_open:
-            self.ser.write(CMD_START)
+            self.ser.write(CMD_CAPTUREFRAME)
             img = np.fromstring(self.ser.readall(), dtype='uint8')
             size = len(img)
             print(size)
@@ -62,11 +105,20 @@ class FileDialog(Frame):
                 try:
                     offset = size - size // pix_num * pix_num
                     img = img[offset:].reshape(size // pix_num, pix_num)
-                    img = img[:, 200:700]
+                    print(img.mean())
+                    fname = self.img_file.get()
+                    mpl.image.imsave(fname + '.png', img, cmap=mpl.cm.Greys_r)
+                    try:
+                        fname = '{:04d}'.format(int(fname) + 1)
+                        self.img_file.set(fname)
+                    except ValueError:
+                        pass
+
+                    # img = img[:, 200:700]
                     # img = img.astype(np.float32)
                     # img -= img.min()
                     # img *= 255 / img.max()
-                    img[img < thresh] = 0
+                    # img[img < (thresh + 128)] = 0
                     plt.imshow(img, vmin=0, vmax=255);plt.show()
 
                     profile = get_profile(img, spike_size, filt_size, fit_order)
@@ -128,11 +180,11 @@ if __name__ == '__main__':
     main_win = FileDialog(root)
     main_win.pack()
 
-    def on_closing():
-        if main_win.ser.is_open:
-            main_win.ser.close()
-        root.destroy()
+    # def on_closing():
+    #     if main_win.ser.is_open:
+    #         main_win.ser.close()
+    #     root.destroy()
 
-    root.protocol("WM_DELETE_WINDOW", on_closing)
+    # root.protocol("WM_DELETE_WINDOW", on_closing)
     root.mainloop()
 
