@@ -2,6 +2,7 @@ from tkinter import constants, filedialog, Button, Frame, Tk, Entry, Label, Stri
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+plt.ion()
 
 import serial
 from serial.tools import list_ports
@@ -53,60 +54,77 @@ class FileDialog(Frame):
         Button(self, text='FrameScan', relief=constants.GROOVE, 
                font=('sans', '10', 'bold'), command=self.frame_scan).pack(**pack_opt)
 
-        self.baudrate = 115200
+        self.ser = None
         self.port = None
+        self.baudrate = 115200
         self.timeout = 3
 
     def line_scan(self):
-        try:
-            self.port = next(list_ports.grep('ASF example \(COM')).device
-        except:
-            messagebox.showinfo("warning", "no COM port found for the device, check connection")
-            return
+        if self.port is None:
+            try:
+                self.port = next(list_ports.grep('ASF example \(COM')).device
+            except:
+                messagebox.showinfo("warning", "no COM port found for the device, check connection")
+                return
 
         #%% acquire and display line in realtime
-        plt.figure('line')
-        with serial.Serial(self.port, self.baudrate, timeout=self.timeout) as ser:
-            # ser.write(CMD_DEBUGSWITCH)
-            while True:
-                ser.write(CMD_CAPTURE1LINE)
-                try:
-                    dummy_data = ser.read(2)
-                    line = np.fromstring(ser.read(1500), dtype='uint8')
-                    if not plt.fignum_exists('line'):
-                        break
-                    else:
-                        plt.cla()
-                        plt.plot(line)
-                        plt.pause(0.005)
-                except:
-                    break
-        if plt.fignum_exists('line'):
-            plt.close('line')
+        fig = plt.figure('line')
+        axes = fig.add_subplot(111)
+        axes.set_autoscaley_on(False)
+        axes.set_ylim([0, 255])
+        line, = axes.plot(np.zeros(pix_num))
+        # axes.set_ylim([0, 255])
+        # plt.ylim(0, 255)
+        with serial.Serial(self.port, self.baudrate, timeout=self.timeout) as self.ser:
+            while plt.fignum_exists('line'):
+                self.ser.write(CMD_CAPTURE1LINE)
+                dummy_data = self.ser.read(2)
+
+                # try to toggle debug if no data acquired 
+                if dummy_data != b'!z':
+                    self.ser.write(CMD_DEBUGSWITCH)
+                    self.ser.write(CMD_CAPTURE1LINE)
+                    dummy_data = self.ser.read(2)
+
+                if dummy_data != b'!z':
+                    messagebox.showinfo("warning", "cannot read data from device")
+                    return
+                    
+                data = np.fromstring(self.ser.read(1500), dtype='uint8')
+                line.set_ydata(data)
+                plt.pause(0.01)
+
 
     def frame_scan(self):
-        if not self.ser.is_open: 
-            self.ser.port = self.acq_port.get()
-            self.ser.baudrate = 115200
-            self.ser.timeout = 3
-            self.ser.open()
-            self.ser.write(CMD_DEBUGSWITCH)
-            # try:
-            #     rser.open()
-                # except:
-                #     messagebox.showinfo("warning", "cannot open the com port, please check device manager")
-                #     return
-        if self.ser.is_open:
+        if self.port is None:
+            try:
+                self.port = next(list_ports.grep('ASF example \(COM')).device
+            except:
+                messagebox.showinfo("warning", "no COM port found for the device, check connection")
+                return
+
+        #%% acquire and display frame 
+        with serial.Serial(self.port, self.baudrate, timeout=self.timeout) as self.ser:
             self.ser.write(CMD_CAPTUREFRAME)
+            dummy_data = self.ser.read(2)
+
+            # try to toggle debug if no data acquired 
+            if dummy_data != b'!z':
+                self.ser.write(CMD_DEBUGSWITCH)
+                self.ser.write(CMD_CAPTUREFRAME)
+                dummy_data = self.ser.read(2)
+
+            if dummy_data != b'!z':
+                messagebox.showinfo("warning", "cannot read data from device")
+                return
+            
             img = np.fromstring(self.ser.readall(), dtype='uint8')
-            size = len(img)
-            print(size)
-            if size > pix_num:
-                try:
-                    offset = size - size // pix_num * pix_num
-                    img = img[offset:].reshape(size // pix_num, pix_num)
-                    print(img.mean())
-                    fname = self.img_file.get()
+            try:
+                img = img.reshape(len(img) // pix_num, pix_num)
+                plt.figure('RawData')
+                plt.imshow(img, vmin=0, vmax=255)
+                fname = self.img_file.get()
+                if fname.strip():
                     mpl.image.imsave(fname + '.png', img, cmap=mpl.cm.Greys_r)
                     try:
                         fname = '{:04d}'.format(int(fname) + 1)
@@ -114,65 +132,53 @@ class FileDialog(Frame):
                     except ValueError:
                         pass
 
-                    # img = img[:, 200:700]
-                    # img = img.astype(np.float32)
-                    # img -= img.min()
-                    # img *= 255 / img.max()
-                    # img[img < (thresh + 128)] = 0
-                    plt.imshow(img, vmin=0, vmax=255);plt.show()
+                profile = get_profile(img, spike_size, filt_size, fit_order)
+                profile_diff = profile[:-edge_size] - profile[edge_size:]
 
-                    profile = get_profile(img, spike_size, filt_size, fit_order)
-                    profile_diff = profile[:-edge_size] - profile[edge_size:]
+                treads_edge = find_treads(profile_diff, edge_size, win_size, max_treads_num, min_tread_width, max_tread_width)
+                treads = calibrate_treads(profile, treads_edge, pix_size, edge_expand, 
+                                            baseline, d0, sensor2baseline_offset)
+                treads_depth = - treads.min(axis=1)
 
-                    treads_edge = find_treads(profile_diff, edge_size, win_size, max_treads_num, min_tread_width, max_tread_width)
-                    treads = calibrate_treads(profile, treads_edge, pix_size, edge_expand, 
-                                                baseline, d0, sensor2baseline_offset)
-                    treads_depth = - treads.min(axis=1)
+                idx_peaks_dips = treads_edge - [0, edge_size]
+                treads_score = get_treads_score(profile_diff, treads_depth, idx_peaks_dips)
+                picked_treads_idx = (treads_score.argsort())[-treads_num:]
+                picked_treads_idx = picked_treads_idx[treads_score[picked_treads_idx] > min_treads_score]
+                picked_treads_idx.sort()
 
-                    idx_peaks_dips = treads_edge - [0, edge_size]
-                    treads_score = get_treads_score(profile_diff, treads_depth, idx_peaks_dips)
-                    picked_treads_idx = (treads_score.argsort())[-treads_num:]
-                    picked_treads_idx = picked_treads_idx[treads_score[picked_treads_idx] > min_treads_score]
-                    picked_treads_idx.sort()
+                picked_treads = treads[picked_treads_idx]
+                picked_treads_depth = treads_depth[picked_treads_idx]
+                # picked_treads_score = treads_score[picked_treads_idx]
+                picked_treads_edge = treads_edge[picked_treads_idx]
 
-                    picked_treads = treads[picked_treads_idx]
-                    picked_treads_depth = treads_depth[picked_treads_idx]
-                    # picked_treads_score = treads_score[picked_treads_idx]
-                    picked_treads_edge = treads_edge[picked_treads_idx]
+                tread_legend = []
+                for i, d in zip(picked_treads_idx, picked_treads_depth):
+                    tread_legend.append('{0:d} : {1:.1f}'.format(i, d))
 
-                    tread_legend = []
-                    for i, d in zip(picked_treads_idx, picked_treads_depth):
-                        tread_legend.append('{0:d} : {1:.1f}'.format(i, d))
+                plt.figure('Treads')
+                # resized_img = np.flipud(img[:, int(profile.min()):int(profile.max())].T)
+                # plt.subplot(311)
+                # plt.imshow(resized_img, aspect=0.1 * resized_img.shape[1]/resized_img.shape[0])
 
-                    plt.figure()
-                    # resized_img = np.flipud(img[:, int(profile.min()):int(profile.max())].T)
-                    # plt.subplot(311)
-                    # plt.imshow(resized_img, aspect=0.1 * resized_img.shape[1]/resized_img.shape[0])
-
-                    plt.subplot(211)
-                    plt.plot(profile)
-                    for (s, e) in treads_edge:
-                        plt.axvline(x=s, color='r')
-                        plt.axvline(x=e, color='r')
-                    for (s, e) in picked_treads_edge:
-                        plt.axvline(x=s, color='g')
-                        plt.axvline(x=e, color='g')
-                        plt.xlim(0, len(profile))
-                        
-                    plt.subplot(212)
-                    if len(treads):
-                        plt.plot(picked_treads.T)
-                        plt.legend(tread_legend)
-                    plt.show()
-                    # self.ser.close()
-                except:
-                    messagebox.showinfo("warning", "no tread can be found")
-            else:
+                plt.subplot(211)
+                plt.plot(profile)
+                for (s, e) in treads_edge:
+                    plt.axvline(x=s, color='r')
+                    plt.axvline(x=e, color='r')
+                for (s, e) in picked_treads_edge:
+                    plt.axvline(x=s, color='g')
+                    plt.axvline(x=e, color='g')
+                    plt.xlim(0, len(profile))
+                    
+                plt.subplot(212)
+                if len(treads):
+                    plt.plot(picked_treads.T)
+                    plt.legend(tread_legend)
+                # plt.show()
+                # self.ser.close()
+            except:
                 messagebox.showinfo("warning", "data reading error, try again")
                 self.ser.close()
-        else:
-            messagebox.showinfo("warning", "cannot open the com port, please try again")
-            # self.ser.close()
             
 
 if __name__ == '__main__':
