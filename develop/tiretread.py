@@ -1,6 +1,7 @@
 import numpy as np
 from math import factorial
 # from scipy.signal import savgol_filter, medfilt
+# from scipy.signal import savgol_filter
 
 def medfilt(data, window_size):
     if window_size % 2 != 1 or window_size < 1:
@@ -54,7 +55,8 @@ def savitzky_golay(y, window_size, order, deriv=0, rate=1):
     return np.convolve(m[::-1], y, mode='valid')
 
 
-def get_profile(image, spike_size, filt_size, fit_order):
+def get_profile(image, thresh, spike_size, filt_size, fit_order):
+    image[image < thresh] = 0
     profile = (image) * np.arange(image.shape[1])
     profile = profile.sum(axis=1) / image.sum(axis=1)
     # fill in missing points of the profile
