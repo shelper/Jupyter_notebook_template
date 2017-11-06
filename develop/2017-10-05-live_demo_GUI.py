@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 plt.ion()
 
+from PIL import Image
 import serial
 from serial.tools import list_ports
 # import time
@@ -11,14 +12,15 @@ from tiretread import *
 
 # configurations that used in the treads detection algorithm
 CMD_CAPTUREFRAME = b'!Z00010000'
-CMD_CAPTURE1LINE = b'!Z00010002'
+# CMD_CAPTURE1LINE = b'!Z00010002'
+CMD_CAPTURE1LINE = b'!Z00010001'
 CMD_DEBUGSWITCH = b'!Z00030000'
 
 # raw image params
 thresh = 40.0
 pix_num, pix_size = 1500, 0.0055
 # system params
-baseline, sensor2baseline_offset, d0 = 10.067, 0.47, 5.549
+baseline, sensor2baseline_offset, d0 = 10.067, -0.45, 5.549
 
 # tread params
 win_size, edge_size, edge_expand = 30, 10, 5
@@ -47,6 +49,7 @@ class FileDialog(Frame):
         self.port = StringVar()
         Label(self, text="COM Port Name").pack(side=constants.TOP, fill=constants.X)
         Entry(self, textvariable=self.port).pack(side=constants.TOP, fill=constants.X)
+        self.port.set('COM11')
 
         # self.pullfrom = os.path.abspath('./')
         Button(self, text='LineScan', relief=constants.GROOVE, 
@@ -57,6 +60,7 @@ class FileDialog(Frame):
                font=('sans', '10', 'bold'), command=self.frame_scan).pack(**pack_opt)
         
         Checkbutton(self, text="Find Treads", variable=self.find_treads).pack(**pack_opt)
+        self.find_treads.set(True)
 
     def check_port(self):
         if self.port.get().strip() == '':
@@ -115,8 +119,8 @@ class FileDialog(Frame):
                         messagebox.showinfo("warning", "cannot read data from device")
                         return
                         
-                    data = np.fromstring(self.ser.read(pix_num * 2), dtype='uint8')
-                    line.set_ydata(data[pix_num:])
+                    data = np.fromstring(self.ser.read(pix_num), dtype='uint8')
+                    line.set_ydata(data)
                     # fig.canvas.flush_events()
                     plt.pause(0.01)
 
@@ -143,7 +147,8 @@ class FileDialog(Frame):
                 plt.imshow(img, vmin=0, vmax=255)
                 fname = self.img_file.get()
                 if fname.strip():
-                    mpl.image.imsave(fname + '.png', img, cmap=mpl.cm.Greys_r)
+                    Image.fromarray(img).save(fname + '.bmp', 'bmp')
+                    # mpl.image.imsave(fname + '.png', img, cmap=mpl.cm.Greys_r)
                     try:
                         fname = '{:04d}'.format(int(fname) + 1)
                         self.img_file.set(fname)
@@ -158,6 +163,7 @@ class FileDialog(Frame):
                     treads = calibrate_treads(profile, treads_edge, pix_size, edge_expand, 
                                                 baseline, d0, sensor2baseline_offset)
                     treads_depth = - treads.min(axis=1)
+                    # print(treads_depth)
 
                     idx_peaks_dips = treads_edge - [0, edge_size]
                     treads_score = get_treads_score(profile_diff, treads_depth, idx_peaks_dips)
@@ -171,9 +177,9 @@ class FileDialog(Frame):
                     picked_treads_edge = treads_edge[picked_treads_idx]
 
                     tread_legend = []
-                    for i, d in zip(picked_treads_idx, picked_treads_depth):
-                        d = round(d * 25.4 / 32)
-                        tread_legend.append('{0:d} : {1:.1f}/32'.format(i, d))
+                    for i, depth in zip(picked_treads_idx, picked_treads_depth):
+                        depth = int(round(depth / 25.4 * 32))
+                        tread_legend.append('{0:d} : {1:d}/32'.format(i, depth))
 
                     plt.figure('Treads')
                     # resized_img = np.flipud(img[:, int(profile.min()):int(profile.max())].T)
@@ -181,6 +187,7 @@ class FileDialog(Frame):
                     # plt.imshow(resized_img, aspect=0.1 * resized_img.shape[1]/resized_img.shape[0])
 
                     plt.subplot(211)
+                    plt.cla()
                     plt.plot(profile)
                     for (s, e) in treads_edge:
                         plt.axvline(x=s, color='r')
@@ -191,6 +198,7 @@ class FileDialog(Frame):
                         plt.xlim(0, len(profile))
                         
                     plt.subplot(212)
+                    plt.cla()
                     if len(treads):
                         plt.plot(picked_treads.T)
                         plt.legend(tread_legend)
