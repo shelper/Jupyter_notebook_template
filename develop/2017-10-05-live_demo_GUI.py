@@ -20,7 +20,7 @@ CMD_DEBUGSWITCH = b'!Z00030000'
 thresh = 40.0
 pix_num, pix_size = 1500, 0.0055
 # system params
-baseline, sensor2baseline_offset, d0 = 10.067, -0.45, 5.549
+baseline, sensor2baseline_offset, d0 = 10.067, -0.35, 5.549
 
 # tread params
 win_size, edge_size, edge_expand = 30, 10, 5

@@ -65,5 +65,4 @@ data/
 .DS_Store
 *.bmp
 *.png
-develop/*.png
-develop/*.bmp
+*.zip

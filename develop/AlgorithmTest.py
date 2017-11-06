@@ -11,7 +11,7 @@ from tiretread import *
 # raw image params
 thresh = 40.0
 pix_num, pix_size = 1500, 0.0055
-baseline, sensor2baseline_offset, d0 = 10.067, -0.4, 5.549
+baseline, sensor2baseline_offset, d0 = 10.067, -0.45, 5.549
 
 # tread params
 win_size, edge_size, edge_expand = 30, 10, 5
@@ -42,7 +42,7 @@ class FileDialog(Frame):
 
     def find_treads(self, x):
         sensor2baseline_offset = float(x)
-        print(sensor2baseline_offset)
+        # print(sensor2baseline_offset)
         img = np.array(Image.open(self.img_file.get()))
         plt.figure('RawData')
         plt.imshow(img, vmin=0, vmax=255)
