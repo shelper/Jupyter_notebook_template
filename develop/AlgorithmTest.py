@@ -32,7 +32,9 @@ class FileDialog(Frame):
         Label(self, text="Load Image").pack(side=constants.TOP, fill=constants.X)
         Entry(self, textvariable=self.img_file).pack(side=constants.TOP, fill=constants.X)
         self.img_file.set('0011.bmp')
-        self.offset = Scale(self, from_=-1, to=1, resolution=0.01, orient=constants.HORIZONTAL, command=self.find_treads)
+
+        self.offset = Scale(self, from_=-1, to=1, resolution=0.01, orient=constants.HORIZONTAL)
+        self.offset.bind("<ButtonRelease-1>", self.find_treads)
         self.offset.pack()
 
         # self.pullfrom = os.path.abspath('./')
@@ -40,8 +42,8 @@ class FileDialog(Frame):
                font=('sans', '10', 'bold'), command=self.find_treads).pack(**pack_opt)
         
 
-    def find_treads(self, x):
-        sensor2baseline_offset = float(x)
+    def find_treads(self, event):
+        sensor2baseline_offset = self.offset.get()
         # print(sensor2baseline_offset)
         img = np.array(Image.open(self.img_file.get()))
         plt.figure('RawData')
