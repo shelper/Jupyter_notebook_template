@@ -42,7 +42,7 @@ class FileDialog(Frame):
         self.timeout = 3
         self.img_file = StringVar()
         self.img = None
-        self.enable_treads = IntVar()
+        # self.enable_treads = IntVar()
         # self.ser_closed = True
 
         Frame.__init__(self, root)
@@ -70,8 +70,8 @@ class FileDialog(Frame):
         self.offset.bind("<ButtonRelease-1>", self.get_treads)
         self.offset.pack(**pack_opt)
  
-        Checkbutton(self, text="Find Treads", variable=self.enable_treads).pack(**pack_opt)
-        self.enable_treads.set(True)
+        # Checkbutton(self, text="Find Treads", variable=self.enable_treads).pack(**pack_opt)
+        # self.enable_treads.set(True)
     
     def debug_on(self, ack=b'!z'):
         with serial.Serial(self.port.get(), self.baudrate, timeout=self.timeout) as self.ser:
