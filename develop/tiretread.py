@@ -135,21 +135,26 @@ def find_treads(profile_diff, edge_size,  win_size, max_treads_num, min_tread_wi
 
 def calibrate_treads(profile, treads_edge, pix_size, edge_expand, baseline, d0, sensor2baseline_offset):
     treads_num = treads_edge.shape[0]
-    treads = np.zeros((treads_num, np.diff(treads_edge).max() + edge_expand * 2))
-    abs_depth = lambda x : - x * d0 / (x - baseline) 
-    for i, (s, e) in enumerate(treads_edge):
-        # remove the baseline of the tread, baseline is fitted using beginning and ending points
-        ss = s - edge_expand
-        ee = e + edge_expand
-        tread = abs_depth(profile[ss:ee] * pix_size + baseline + sensor2baseline_offset)
-        x = np.concatenate((np.arange(edge_expand), np.arange(len(tread) - edge_expand, len(tread))))
-        linear_fit_params = np.polyfit(x, tread[x], 1)
-        tread -= np.polyval(linear_fit_params, np.arange(len(tread)))
-        pad_before = (treads.shape[1] - len(tread)) // 2
-        pad_after = treads.shape[1] - len(tread) - pad_before
-        treads[i] = np.pad(tread, (pad_before, pad_after), 'constant')
+    if treads_num == 0:
+       return None 
+    else:
+        treads = np.zeros((treads_num, np.diff(treads_edge).max() + edge_expand * 2))
+        abs_depth = lambda x : - x * d0 / (x - baseline) 
+        for i, (s, e) in enumerate(treads_edge):
+            # remove the baseline of the tread, baseline is fitted using beginning and ending points
+            ss = s - edge_expand
+            ee = e + edge_expand
+            # print(ss, ee)
+            tread = abs_depth(profile[ss:ee] * pix_size + baseline + sensor2baseline_offset)
+            # print(len(tread))
+            x = np.concatenate((np.arange(edge_expand), np.arange(len(tread) - edge_expand, len(tread))))
+            linear_fit_params = np.polyfit(x, tread[x], 1)
+            tread -= np.polyval(linear_fit_params, np.arange(len(tread)))
+            pad_before = (treads.shape[1] - len(tread)) // 2
+            pad_after = treads.shape[1] - len(tread) - pad_before
+            treads[i] = np.pad(tread, (pad_before, pad_after), 'constant')
 
-    return treads
+        return treads
 
 
 def get_treads_score(profile_diff, treads_depth, idx_peaks_dips):

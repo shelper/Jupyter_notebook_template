@@ -42,7 +42,7 @@ class FileDialog(Frame):
         self.timeout = 3
         self.img_file = StringVar()
         self.img = None
-        # self.enable_treads = IntVar()
+        self.cont_capture = IntVar()
         # self.ser_closed = True
 
         Frame.__init__(self, root)
@@ -57,22 +57,23 @@ class FileDialog(Frame):
         Entry(self, textvariable=self.port).pack(side=constants.TOP, fill=constants.X)
         self.port.set('COM11')
 
-        # self.pullfrom = os.path.abspath('./')
         Button(self, text='LineScan', relief=constants.GROOVE, 
                font=('sans', '10', 'bold'), command=self.line_scan).pack(**pack_opt)
 
-        # self.pullfrom = os.path.abspath('./')
         Button(self, text='FrameScan', relief=constants.GROOVE, 
                font=('sans', '10', 'bold'), command=self.frame_scan).pack(**pack_opt)
 
-        
-        self.offset = Scale(self, from_=-1, to=1, resolution=0.01, orient=constants.HORIZONTAL)
-        self.offset.bind("<ButtonRelease-1>", self.get_treads)
+        Checkbutton(self, text="continuous capture", variable=self.cont_capture).pack(**pack_opt)
+        self.cont_capture.set(False)
+
+        self.offset = Scale(self, label='baseline offset', from_=-1, to=1, resolution=0.01, orient=constants.HORIZONTAL)
+        self.offset.bind("<ButtonRelease-1>", self.draw_treads)
         self.offset.pack(**pack_opt)
  
-        # Checkbutton(self, text="Find Treads", variable=self.enable_treads).pack(**pack_opt)
-        # self.enable_treads.set(True)
+        Button(self, text='FreeRun', relief=constants.GROOVE, 
+               font=('sans', '10', 'bold'), command=self.freerun).pack(**pack_opt)
     
+
     def debug_on(self, ack=b'!z'):
         with serial.Serial(self.port.get(), self.baudrate, timeout=self.timeout) as self.ser:
             self.ser.reset_input_buffer()
@@ -126,6 +127,12 @@ class FileDialog(Frame):
                     messagebox.showinfo("warning", "cannot open the port {}".format(self.port.get()))
                 return False
     
+    def freerun(self):
+        print('turn on free run')
+    
+    def stop_acquisition(self):
+        pass
+
     def capture(self, line_num, ack='!z', offset=0):
         # self.ser.write(CMD_FREERUNOFF)
         # ack = self.ser.readall()
@@ -134,7 +141,7 @@ class FileDialog(Frame):
         # ack = self.ser.read(2)
         # print('capture frame', ack)
         # cmd = CMD_CAPTURE + bytes('{:04d}'.format(line_num), 'ascii')
-        self.ser.reset_input_buffer()
+        self.ser.reset_input_buffer() # has to clear up the buffer as the results has redundant data  
         cmd = CMD_CAPTURE + bytes('{:0>4}'.format(hex(line_num)[2:]), 'ascii')
         self.ser.write(cmd)
         ack_received = self.ser.read(len(ack))
@@ -171,6 +178,8 @@ class FileDialog(Frame):
                         line.set_ydata(data)
                         # fig.canvas.flush_events()
                         plt.pause(0.01)
+                    if not self.cont_capture.get():
+                        break
 
 
     def frame_scan(self, line_num=1000, offset=0):
@@ -179,15 +188,16 @@ class FileDialog(Frame):
                 fig = plt.figure('Frame')
                 gs = GridSpec(2, 2)
                 ax1 = plt.subplot(gs[:, 0])
-                ax2 = plt.subplot(gs[0, 1])
-                ax3 = plt.subplot(gs[1:,1])
+                plt.subplot(gs[0, 1])
+                plt.subplot(gs[1:,1])
 
                 frame_idx = 0
-                while plt.fignum_exists('Frame'):
+                while plt.fignum_exists('Frame') :
                     self.img = self.capture(line_num, offset=offset)
                     if self.img is not None:
                         frame_idx += 1
                         print('capturing {} frame'.format(frame_idx))
+                        ax1.imshow(self.img, vmin=0, vmax=255)
                         fname = self.img_file.get().strip()
                         if fname:
                             Image.fromarray(self.img).save(fname + '.bmp', 'bmp')
@@ -196,74 +206,65 @@ class FileDialog(Frame):
                                 self.img_file.set(fname)
                             except ValueError:
                                 pass
-                        # if self.enable_treads.get():
-                        self.get_treads()
-        
-    def get_treads(self, event=None):
-        if self.img is not None:
-            if event and plt.fignum_exists('Frame'):
-                fig = plt.figure('Frame')
-                ax1, ax2, ax3 = fig.get_axes()
-            elif event and not plt.fignum_exists('Frame'):
-                fig = plt.figure('Frame')
-                gs = GridSpec(2, 2)
-                ax1 = plt.subplot(gs[:, 0])
-                ax2 = plt.subplot(gs[0, 1])
-                ax3 = plt.subplot(gs[1:,1])
-            elif not event and plt.fignum_exists('Frame'):
-                fig = plt.figure('Frame')
-                ax1, ax2, ax3 = fig.get_axes()
-            else:
-                return
+                        self.draw_treads()
 
-            plt.sca(ax1)
-            plt.imshow(self.img, vmin=0, vmax=255)
+                    if not self.cont_capture.get():
+                        break
+        
+
+    def draw_treads(self, event=None):
+        if not plt.fignum_exists('Frame'):
+            return
+        else:
+            fig = plt.figure('Frame')
+            ax2, ax3 = fig.get_axes()[1:]
 
             profile = get_profile(self.img.copy(), thresh, spike_size, filt_size, fit_order)
             profile_diff = profile[:-edge_size] - profile[edge_size:]
             treads_edge = find_treads(profile_diff, edge_size, win_size, max_treads_num, min_tread_width, max_tread_width)
             treads = calibrate_treads(profile, treads_edge, pix_size, edge_expand, 
                                         baseline, d0, self.offset.get())
-            treads_depth = - treads.min(axis=1)
-            # print(treads_depth)
-            idx_peaks_dips = treads_edge - [0, edge_size]
-            treads_score = get_treads_score(profile_diff, treads_depth, idx_peaks_dips)
-            picked_treads_idx = (treads_score.argsort())[-treads_num:]
-            picked_treads_idx = picked_treads_idx[treads_score[picked_treads_idx] > min_treads_score]
-            picked_treads_idx.sort()
+            if treads is None:
+                plt.sca(ax2)
+                plt.cla()
+                plt.sca(ax3)
+                plt.cla()
+            else:
+                treads_depth = -treads.min(axis=1)
+                # print(treads_depth)
+                idx_peaks_dips = treads_edge - [0, edge_size]
+                treads_score = get_treads_score(profile_diff, treads_depth, idx_peaks_dips)
+                picked_treads_idx = (treads_score.argsort())[-treads_num:]
+                picked_treads_idx = picked_treads_idx[treads_score[picked_treads_idx] > min_treads_score]
+                picked_treads_idx.sort()
 
-            picked_treads = treads[picked_treads_idx]
-            picked_treads_depth = treads_depth[picked_treads_idx]
-            # picked_treads_score = treads_score[picked_treads_idx]
-            picked_treads_edge = treads_edge[picked_treads_idx]
+                picked_treads = treads[picked_treads_idx]
+                picked_treads_depth = treads_depth[picked_treads_idx]
+                # picked_treads_score = treads_score[picked_treads_idx]
+                picked_treads_edge = treads_edge[picked_treads_idx]
 
-            tread_legend = []
-            for i, depth in zip(picked_treads_idx, picked_treads_depth):
-                depth = int(round(depth / 25.4 * 32))
-                tread_legend.append('{0:d} : {1:d}/32'.format(i, depth))
+                tread_legend = []
+                for i, depth in zip(picked_treads_idx, picked_treads_depth):
+                    depth = int(round(depth / 25.4 * 32))
+                    tread_legend.append('{0:d} : {1:d}/32'.format(i, depth))
 
-            # plt.figure('Treads')
-            # resized_img = np.flipud(img[:, int(profile.min()):int(profile.max())].T)
-            # plt.subplot(311)
-            # plt.imshow(resized_img, aspect=0.1 * resized_img.shape[1]/resized_img.shape[0])
-            # plt.subplot(211) 
-            plt.sca(ax2)
-            plt.cla()
-            plt.plot(profile)
-            for (s, e) in treads_edge:
-                plt.axvline(x=s, color='r')
-                plt.axvline(x=e, color='r')
-            for (s, e) in picked_treads_edge:
-                plt.axvline(x=s, color='g')
-                plt.axvline(x=e, color='g')
-                plt.xlim(0, len(profile))
-                
-            # plt.subplot(212)
-            plt.sca(ax3)
-            plt.cla()
-            if len(treads):
-                plt.plot(picked_treads.T)
-                plt.legend(tread_legend)
+                plt.sca(ax2)
+                plt.cla()
+                plt.plot(profile)
+                for (s, e) in treads_edge:
+                    plt.axvline(x=s, color='r')
+                    plt.axvline(x=e, color='r')
+                for (s, e) in picked_treads_edge:
+                    plt.axvline(x=s, color='g')
+                    plt.axvline(x=e, color='g')
+                    plt.xlim(0, len(profile))
+                    
+                # plt.subplot(212)
+                plt.sca(ax3)
+                plt.cla()
+                if len(treads):
+                    plt.plot(picked_treads.T)
+                    plt.legend(tread_legend)
 
             plt.pause(0.05) 
 
