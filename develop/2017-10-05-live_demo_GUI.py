@@ -160,11 +160,12 @@ class FileDialog(Frame):
                 messagebox.showinfo('warning', 'received size {} != requested {}'.format(len(data), data_size))
                 return None
         
-    def line_scan(self, line_num=1, offset=1502):  # acquire and display line in realtime
+    def line_scan(self, line_num=1, offset=0):  # acquire and display line in realtime
         if self.port_ok() and self.debug_on():
             with serial.Serial(self.port.get(), self.baudrate, timeout=self.timeout) as self.ser:
                 fig = plt.figure('line')
                 axes = fig.add_subplot(111)
+                axes.clear()
                 axes.set_autoscaley_on(False)
                 axes.set_ylim([0, 255])
                 line, = axes.plot(np.zeros(pix_num * line_num))
