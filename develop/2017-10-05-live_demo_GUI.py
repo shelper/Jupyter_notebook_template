@@ -3,14 +3,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib.gridspec import GridSpec
-
-plt.ion()
-
 from PIL import Image
 import serial
 from serial.tools import list_ports
 # import time
 from tiretread import *
+
+plt.ion()
 
 # configurations that used in the treads detection algorithm
 CMD_CAPTURE = b'!Z0001'
@@ -19,7 +18,9 @@ CMD_CAPTURE1LINE = b'!Z00010001'
 # CMD_CAPTURE1LINE = b'!Z00010001'
 CMD_FREERUNON = b'!Z00080001'
 CMD_FREERUNOFF = b'!Z00080000'
-CMD_DEBUGSWITCH = b'!Z00030000'
+# CMD_DEBUGSWITCH = b'!Z00030000'
+CMD_SETGETEXPO = b'!Z000A'
+CMD_SETDCOFFSET = b'!Z0007'
 
 # raw image params
 thresh = 40.0
@@ -43,6 +44,7 @@ class FileDialog(Frame):
         self.img_file = StringVar()
         self.img = None
         self.cont_capture = IntVar()
+        self.root = root
         # self.ser_closed = True
 
         Frame.__init__(self, root)
@@ -57,6 +59,14 @@ class FileDialog(Frame):
         Entry(self, textvariable=self.port).pack(side=constants.TOP, fill=constants.X)
         self.port.set('COM11')
 
+        self.exposure = Scale(self, label='exposure time', from_=50, to=3000, resolution=50, orient=constants.HORIZONTAL)
+        self.exposure.bind("<ButtonRelease-1>", self.set_exposure)
+        self.exposure.pack(**pack_opt)
+
+        self.offsetDC = Scale(self, label='DC Offset', from_=0, to=3, resolution=0.01, orient=constants.HORIZONTAL)
+        self.offsetDC.bind("<ButtonRelease-1>", self.set_offsetDC)
+        self.offsetDC.pack(**pack_opt)
+
         Button(self, text='LineScan', relief=constants.GROOVE, 
                font=('sans', '10', 'bold'), command=self.line_scan).pack(**pack_opt)
 
@@ -64,36 +74,15 @@ class FileDialog(Frame):
                font=('sans', '10', 'bold'), command=self.frame_scan).pack(**pack_opt)
 
         Checkbutton(self, text="continuous capture", variable=self.cont_capture).pack(**pack_opt)
-        self.cont_capture.set(False)
+        self.cont_capture.set(True)
 
-        self.offset = Scale(self, label='baseline offset', from_=-1, to=1, resolution=0.01, orient=constants.HORIZONTAL)
-        self.offset.bind("<ButtonRelease-1>", self.draw_treads)
-        self.offset.pack(**pack_opt)
- 
+        self.offsetBL = Scale(self, label='baseline offset', from_=-1, to=1, resolution=0.01, orient=constants.HORIZONTAL)
+        self.offsetBL.bind("<ButtonRelease-1>", self.draw_treads)
+        self.offsetBL.pack(**pack_opt)
+
         Button(self, text='FreeRun', relief=constants.GROOVE, 
-               font=('sans', '10', 'bold'), command=self.freerun).pack(**pack_opt)
+               font=('sans', '10', 'bold'), command=self.free_run).pack(**pack_opt)
     
-
-    def debug_on(self, ack=b'!z'):
-        with serial.Serial(self.port.get(), self.baudrate, timeout=self.timeout) as self.ser:
-            self.ser.reset_input_buffer()
-            self.ser.write(CMD_CAPTURE1LINE)
-            ack_received = self.ser.read(len(ack))
-            if ack_received == ack:
-                print('DEBUG already ON')
-                return True
-            else:
-                self.ser.write(CMD_DEBUGSWITCH)
-                self.ser.write(CMD_CAPTURE1LINE)
-                ack_received = self.ser.read(len(ack))
-                if ack_received == ack:
-                    print('DEBUG turned ON')
-                    return True
-                else:
-                    print('Cannot turn on debug switch, received ack {} != {}'.format(ack_received, ack))
-                    # print('Cannot turn on debug switch')
-                    return False
-
 
     def port_ok(self):
         if self.port.get().strip() == '':
@@ -126,12 +115,69 @@ class FileDialog(Frame):
                 except serial.SerialException:
                     messagebox.showinfo("warning", "cannot open the port {}".format(self.port.get()))
                 return False
+
     
-    def freerun(self):
-        print('turn on free run')
+    def free_run(self, line_num=2, offset=2):
+        if self.port_ok(): #and self.debug_on():
+            with serial.Serial(self.port.get(), self.baudrate, timeout=self.timeout) as self.ser:
+                self.ser.write(CMD_FREERUNON)
+                print('turn on free run')
+                fig = plt.figure('freerun')
+                axes = fig.add_subplot(111)
+                axes.clear()
+                axes.set_autoscaley_on(False)
+                axes.set_ylim([0, 255])
+                line, = axes.plot(np.zeros(pix_num * line_num))
+                cmd = CMD_CAPTURE + bytes('{:0>4}'.format(hex(line_num)[2:]), 'ascii')
+                self.ser.write(cmd)
+                line_idx = 0
+                while plt.fignum_exists('freerun'):
+                    data_size = pix_num * line_num + offset
+                    self.ser.reset_input_buffer()
+                    data = np.fromstring(self.ser.read(data_size), dtype='uint8')
+                    if data is not None:
+                        line_idx += 1
+                        print('capturing {} line'.format(line_idx))
+                        line.set_ydata(data[offset:])
+                        plt.pause(0.01)
+                    else:
+                        break
+                self.ser.write(CMD_FREERUNOFF)
+                print('exit free run')
+
     
     def stop_acquisition(self):
         pass
+
+    def set_exposure(self, event=None):
+        # self.ser.write(CMD_SETGETEXPO + b'0000')
+        # pulse_num = self.ser.read(4)[::-1][:2]
+        # pulse_num = int.from_bytes(pulse_num, byteorder='big')
+        # self.exposure.set(pulse_num)
+        # print('previous exposure pulse num: ', pulse_num)
+        pulse_num = self.exposure.get()
+        cmd = CMD_SETGETEXPO + bytes('{:0>4}'.format(hex(pulse_num)[2:]), 'ascii')
+        if self.ser.is_open:
+            self.ser.write(cmd)
+        else:
+            with serial.Serial(self.port.get(), self.baudrate, timeout=self.timeout) as self.ser:
+                self.ser.write(cmd)
+        print('new exposure pulse num: ', pulse_num)
+
+
+    def set_offsetDC(self, event=None):
+        # if self.port_ok(): #and self.debug_on():
+        offsetDC = self.offsetDC.get()
+        cmd = CMD_SETDCOFFSET + bytes('{:0>4}'.format(hex(int(offsetDC * 100))[2:]), 'ascii')
+        if self.ser.is_open:
+            self.ser.write(cmd)
+            self.ser.read(4)
+        else:
+            with serial.Serial(self.port.get(), self.baudrate, timeout=self.timeout) as self.ser:
+                self.ser.write(cmd)
+                self.ser.read(4)
+        print('new DC offset set to {} volts'.format(offsetDC))
+
 
     def capture(self, line_num, ack='!z', offset=0):
         # self.ser.write(CMD_FREERUNOFF)
@@ -161,56 +207,64 @@ class FileDialog(Frame):
                 return None
         
     def line_scan(self, line_num=1, offset=0):  # acquire and display line in realtime
-        if self.port_ok() and self.debug_on():
+        if self.port_ok(): # and self.debug_on():
             with serial.Serial(self.port.get(), self.baudrate, timeout=self.timeout) as self.ser:
                 fig = plt.figure('line')
                 axes = fig.add_subplot(111)
                 axes.clear()
                 axes.set_autoscaley_on(False)
                 axes.set_ylim([0, 255])
-                line, = axes.plot(np.zeros(pix_num * line_num))
-                line_idx = 0
-                while plt.fignum_exists('line'):
-                    data = self.capture(line_num, offset=offset)
-                    if data is not None:
-                        line_idx += 1
-                        print('capturing {} line'.format(line_idx))
-                        # line.set_label('capturing {} line'.format(line_idx))
-                        line.set_ydata(data)
-                        # fig.canvas.flush_events()
-                        plt.pause(0.01)
-                    if not self.cont_capture.get():
-                        break
+                data = self.capture(line_num, offset=offset)
+                if data is not None:
+                    line_idx = 1
+                    line, = axes.plot(data)
+                    while plt.fignum_exists('line') and self.cont_capture.get():
+                        data = self.capture(line_num, offset=offset)
+                        if data is not None:
+                            line_idx += 1
+                            print('capturing {} line'.format(line_idx))
+                            # line.set_label('capturing {} line'.format(line_idx))
+                            line.set_ydata(data)
+                            plt.pause(0.01)
+                            self.update()
+                        else:
+                            break
 
+    def save_rawdata(self):
+        fname = self.img_file.get().strip()
+        if fname:
+            Image.fromarray(self.img).save(fname + '.bmp', 'bmp')
+            try:
+                fname = '{:04d}'.format(int(fname) + 1)
+                self.img_file.set(fname)
+            except ValueError:
+                pass
 
     def frame_scan(self, line_num=1000, offset=0):
-        if self.port_ok() and self.debug_on(): 
+        if self.port_ok(): # and self.debug_on(): 
             with serial.Serial(self.port.get(), self.baudrate, timeout=self.timeout) as self.ser:
                 fig = plt.figure('Frame')
                 gs = GridSpec(2, 2)
                 ax1 = plt.subplot(gs[:, 0])
                 plt.subplot(gs[0, 1])
                 plt.subplot(gs[1:,1])
-
-                frame_idx = 0
-                while plt.fignum_exists('Frame') :
-                    self.img = self.capture(line_num, offset=offset)
-                    if self.img is not None:
-                        frame_idx += 1
-                        print('capturing {} frame'.format(frame_idx))
-                        ax1.imshow(self.img, vmin=0, vmax=255)
-                        fname = self.img_file.get().strip()
-                        if fname:
-                            Image.fromarray(self.img).save(fname + '.bmp', 'bmp')
-                            try:
-                                fname = '{:04d}'.format(int(fname) + 1)
-                                self.img_file.set(fname)
-                            except ValueError:
-                                pass
-                        self.draw_treads()
-
-                    if not self.cont_capture.get():
-                        break
+                self.img = self.capture(line_num, offset=offset)
+                if self.img is not None:
+                    frame_idx = 1
+                    ax1.imshow(self.img, vmin=0, vmax=255)
+                    self.draw_treads()
+                    self.save_rawdata()
+                    while plt.fignum_exists('Frame') and self.cont_capture.get():
+                        self.img = self.capture(line_num, offset=offset)
+                        if self.img is not None:
+                            frame_idx += 1
+                            print('capturing {} frame'.format(frame_idx))
+                            ax1.imshow(self.img, vmin=0, vmax=255)
+                            self.draw_treads()
+                            self.save_rawdata()
+                            self.update()
+                        else:
+                            break
         
 
     def draw_treads(self, event=None):
@@ -224,7 +278,7 @@ class FileDialog(Frame):
             profile_diff = profile[:-edge_size] - profile[edge_size:]
             treads_edge = find_treads(profile_diff, edge_size, win_size, max_treads_num, min_tread_width, max_tread_width)
             treads = calibrate_treads(profile, treads_edge, pix_size, edge_expand, 
-                                        baseline, d0, self.offset.get())
+                                        baseline, d0, self.offsetBL.get())
             if treads is None:
                 plt.sca(ax2)
                 plt.cla()
