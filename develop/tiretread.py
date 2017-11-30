@@ -55,10 +55,15 @@ def savitzky_golay(y, window_size, order, deriv=0, rate=1):
     return np.convolve(m[::-1], y, mode='valid')
 
 
-def get_profile(image, thresh, spike_size, filt_size, fit_order):
-    image[image < thresh] = 0
-    profile = (image) * np.arange(image.shape[1])
-    profile = profile.sum(axis=1) / image.sum(axis=1)
+def get_profile(image, spike_size, filt_size, fit_order):
+    img_sum = image.sum(axis = 1)
+    img_peak = (image > 10).sum(axis = 1)
+    # print(image.max(), image.min())
+    # image[image < thresh] = 0
+    profile = image * np.arange(image.shape[1])
+    profile = profile.sum(axis=1)
+    profile = profile / img_sum
+    profile[img_peak < 5] = np.nan
     # fill in missing points of the profile
     nans = np.isnan(profile)
     if len(nans.nonzero()[0]):

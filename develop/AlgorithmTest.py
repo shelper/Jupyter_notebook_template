@@ -9,7 +9,7 @@ from PIL import Image
 from tiretread import *
 
 # raw image params
-thresh = 40.0
+# thresh = 105.0
 pix_num, pix_size = 1500, 0.0055
 baseline, sensor2baseline_offset, d0 = 10.067, -0.45, 5.549
 
@@ -50,7 +50,7 @@ class FileDialog(Frame):
         plt.imshow(img, vmin=0, vmax=255)
 
         
-        profile = get_profile(img, thresh, spike_size, filt_size, fit_order)
+        profile = get_profile(img, spike_size, filt_size, fit_order)
         profile_diff = profile[:-edge_size] - profile[edge_size:]
 
         treads_edge = find_treads(profile_diff, edge_size, win_size, max_treads_num, min_tread_width, max_tread_width)
