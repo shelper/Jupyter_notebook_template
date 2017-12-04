@@ -19,7 +19,7 @@ CMD_CAPTURE = b'!Z0001'
 CMD_CAPTURE1LINE = b'!Z00010001'
 CMD_FREERUNON = b'!Z00080001'
 CMD_FREERUNOFF = b'!Z00080000'
-# CMD_DEBUGSWITCH = b'!Z00030000'
+CMD_DEBUGSWITCH = b'!Z00030000'
 CMD_SETEXPO = b'!Z000A'
 CMD_GETEXPO = b'!Z000A0000'
 CMD_SETDCOFFSET = b'!Z0007'
@@ -93,24 +93,37 @@ class FileDialog(Frame):
         self.intensityBL = Scale(group3, label='Intensity baseline', from_=0, to=100, resolution=1, orient=constants.HORIZONTAL)
         self.intensityBL.bind("<ButtonRelease-1>", self.draw_treads)
         self.intensityBL.pack(**pack_opt)
-        
+       
+    def toggle_board_debug(self):
+        if self.ser.is_open:
+            self.ser.write(CMD_DEBUGSWITCH)
+        else:
+            with serial.Serial(self.port.get(), self.baudrate, timeout=self.timeout) as self.ser:
+                self.ser.write(CMD_DEBUGSWITCH)
+        print('debug toggled')
+
+    def update_board_config(self):
+        self.ser.reset_input_buffer()
+        self.ser.write(CMD_GETEXPO)
+        pulse_num = self.ser.read(6)[2:][::-1]
+        pulse_num = int(pulse_num.decode('ascii'), 16)
+        self.exposure.set(pulse_num)
+        # self.ser.write(CMD_GETDCOFFSET)
+        # offsetDC = self.ser.read(6)[:2][::-1]
+        # print(offsetDC)
+        # offsetDC = int(offsetDC.decode('ascii'), 16)
+        # offsetDC /= 100
+        # self.offsetDC.set(offsetDC)
+            
     def find_board(self):
-        if self.port.get().strip() == '':
+        if self.ser is not None and self.ser.is_open:
+            self.update_board_config()
+        elif self.port.get().strip() == '':
             try:
                 port = next(list_ports.grep('ASF example \(COM')).device
                 with serial.Serial(port, self.baudrate, timeout=self.timeout) as self.ser:
                     self.port.set(port)
-                    self.ser.reset_input_buffer()
-                    self.ser.write(CMD_GETEXPO)
-                    pulse_num = self.ser.read(4)[::-1][:2]
-                    pulse_num = int.from_bytes(pulse_num, byteorder='big')
-                    self.exposure.set(pulse_num)
-                    self.ser.write(CMD_GETDCOFFSET)
-                    offsetDC = self.ser.read(4)[::-1][:2]
-                    offsetDC = int.from_bytes(offsetDC, byteorder='big')
-                    offsetDC /= 100
-                    self.offsetDC.set(offsetDC)
-                    return True
+                    self.update_board_config()
             except StopIteration:
                 messagebox.showinfo("warning", "no COM port found for the device")
                 return False
@@ -120,36 +133,13 @@ class FileDialog(Frame):
         else:
             try: 
                 with serial.Serial(self.port.get(), self.baudrate, timeout=self.timeout) as self.ser:
-                    self.ser.reset_input_buffer()
-                    self.ser.write(CMD_GETEXPO)
-                    pulse_num = self.ser.read(4)[::-1][:2]
-                    pulse_num = int.from_bytes(pulse_num, byteorder='big')
-                    self.exposure.set(pulse_num)
-                    # self.ser.write(CMD_GETDCOFFSET)
-                    # offsetDC = self.ser.read(4)[::-1][:2]
-                    # offsetDC = int.from_bytes(offsetDC, byteorder='big')
-                    # offsetDC /= 100
-                    # self.offsetDC.set(offsetDC)
-                    return True
+                    self.update_board_config()
             except serial.SerialException:
-                # messagebox.showinfo("warning", "wrong port number")
                 try:
                     port = next(list_ports.grep('ASF example \(COM')).device
                     with serial.Serial(port, self.baudrate, timeout=self.timeout) as self.ser:
                         self.port.set(port)
-                        self.ser.reset_input_buffer()
-                        self.ser.write(CMD_GETEXPO)
-                        pulse_num = self.ser.read(4)[::-1][:2]
-                        pulse_num = int.from_bytes(pulse_num, byteorder='big')
-                        print(pulse_num)
-                        self.exposure.set(pulse_num)
-                        # self.ser.write(CMD_GETDCOFFSET)
-                        # offsetDC = self.ser.read(4)[::-1][:2]
-                        # offsetDC = int.from_bytes(offsetDC, byteorder='big')
-                        # offsetDC /= 100
-                        # print(offsetDC)
-                        # self.offsetDC.set(offsetDC)
-                        return True
+                        self.update_board_config()
                 except StopIteration:
                     messagebox.showinfo("warning", "no COM port found for the device")
                     self.port.set('')
@@ -157,6 +147,9 @@ class FileDialog(Frame):
                 except serial.SerialException:
                     messagebox.showinfo("warning", "cannot open the port {}".format(self.port.get()))
                 return False
+
+        # self.toggle_board_debug()
+        return True
 
     def set_exposure(self, event=None):
         pulse_num = self.exposure.get()
@@ -283,6 +276,7 @@ class FileDialog(Frame):
                         # print('capturing {} line'.format(line_idx))
                         line.set_ydata(data)
                         plt.pause(0.01)
+                        self.update()
                     else:
                         break
             self.ser.write(CMD_FREERUNOFF)
@@ -305,6 +299,7 @@ class FileDialog(Frame):
 
         ax1, ax2, ax3 = fig.get_axes()
         self.img2 = self.img.astype(np.int16)
+        self.img2 -= self.img.min()
         self.img2 -= self.intensityBL.get()
         self.img2[self.img2 < 0] = 0
         self.img2[self.img2 > 127] = 0

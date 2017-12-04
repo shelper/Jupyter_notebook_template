@@ -66,8 +66,12 @@ def get_profile(image, spike_size, filt_size, fit_order):
     profile[img_peak < 5] = np.nan
     # fill in missing points of the profile
     nans = np.isnan(profile)
-    if len(nans.nonzero()[0]):
+
+    if all(nans):
+        profile = np.zeros(len(profile))
+    else:
         profile[nans]= np.interp(nans.nonzero()[0], (~nans).nonzero()[0], profile[~nans])
+
     # smooth the profile
     if spike_size: 
         profile = medfilt(profile, spike_size * 2 + 1)
