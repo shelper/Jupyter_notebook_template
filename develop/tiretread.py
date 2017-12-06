@@ -83,12 +83,12 @@ def get_profile(image, spike_size, filt_size, fit_order):
 
 
 def find_treads(profile_diff, edge_size,  win_size, max_treads_num, min_tread_width, max_tread_width):
-    n_sects = len(profile_diff) // win_size
+    n_sects = (len(profile_diff)-edge_size) // win_size
     idx4mins = []
     idx4maxs = []
-    for i in range(len(profile_diff) // win_size):
-        s = i * win_size 
-        e = (i + 1) * win_size
+    for i in range(n_sects): # -2 to avoid edges at the very beginning and ending
+        s = i * win_size + edge_size
+        e = (i + 1) * win_size + edge_size
         idx4mins.append(s + profile_diff[s : e].argmin())
         idx4maxs.append(s + profile_diff[s : e].argmax())
     
@@ -137,8 +137,9 @@ def find_treads(profile_diff, edge_size,  win_size, max_treads_num, min_tread_wi
 
     treads_edge = np.array(treads_edge)
     treads_edge[:, 1] += edge_size 
-    treads_width = np.squeeze(np.diff(treads_edge, axis=1))
+    treads_width = np.squeeze(np.diff(treads_edge, axis=1)).reshape(-1)
     treads_edge = treads_edge[(treads_width>min_tread_width) & (treads_width<max_tread_width)]
+
     return treads_edge
 
 

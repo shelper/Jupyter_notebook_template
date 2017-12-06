@@ -59,15 +59,14 @@ class FileDialog(Frame):
         Label(group1, text="COM Port Name").pack(side=constants.TOP, fill=constants.X)
         Entry(group1, textvariable=self.port).pack(side=constants.TOP, fill=constants.X)
         # self.port.set('COM11')
+        Button(group1, text='FindBoard', relief=constants.GROOVE, 
+            font=('sans', '10', 'bold'), command=self.find_board).pack(**pack_opt)
         self.exposure = Scale(group1, label='exposure time', from_=50, to=3000, resolution=50, orient=constants.HORIZONTAL)
         self.exposure.bind("<ButtonRelease-1>", self.set_exposure)
         self.exposure.pack(**pack_opt)
         self.offsetDC = Scale(group1, label='DC Offset', from_=0, to=3, resolution=0.01, orient=constants.HORIZONTAL)
         self.offsetDC.bind("<ButtonRelease-1>", self.set_offsetDC)
         self.offsetDC.pack(**pack_opt)
-        Button(group1, text='FindBoard', relief=constants.GROOVE, 
-            font=('sans', '10', 'bold'), command=self.find_board).pack(**pack_opt)
-
 
         group2 = LabelFrame(self, text="Capture", padx=5, pady=5)
         group2.pack(padx=10, pady=10)
@@ -105,13 +104,17 @@ class FileDialog(Frame):
     def update_board_config(self):
         self.ser.reset_input_buffer()
         self.ser.write(CMD_GETEXPO)
-        pulse_num = self.ser.read(6)[2:][::-1]
-        pulse_num = int(pulse_num.decode('ascii'), 16)
+        pulse_num = self.ser.read(4)[2:][::-1]
+        pulse_num = int.from_bytes(pulse_num, byteorder='big')
+        # pulse_num = self.ser.read(6)[2:][::-1]
+        # pulse_num = int(pulse_num.decode('ascii'), 16)
         self.exposure.set(pulse_num)
+
         # self.ser.write(CMD_GETDCOFFSET)
-        # offsetDC = self.ser.read(6)[:2][::-1]
+        # offsetDC = self.ser.read(4)[2:][::-1]
+        # offsetDC = int.from_bytes(offsetDC, byteorder='big')
         # print(offsetDC)
-        # offsetDC = int(offsetDC.decode('ascii'), 16)
+        # # offsetDC = int(offsetDC.decode('ascii'), 16)
         # offsetDC /= 100
         # self.offsetDC.set(offsetDC)
             
