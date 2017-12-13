@@ -24,6 +24,8 @@ CMD_SETEXPO = b'!Z000A'
 CMD_GETEXPO = b'!Z000A0000'
 CMD_SETDCOFFSET = b'!Z0007'
 CMD_GETDCOFFSET = b'!Z0007FFFF'
+PULSE2EXPO = 0.3734
+PULSE2DCOFFSET = 0.00080566
 
 # raw image params
 pix_num, pix_size = 1500, 0.0055
@@ -61,10 +63,10 @@ class FileDialog(Frame):
         # self.port.set('COM11')
         Button(group1, text='FindBoard', relief=constants.GROOVE, 
             font=('sans', '10', 'bold'), command=self.find_board).pack(**pack_opt)
-        self.exposure = Scale(group1, label='exposure time', from_=50, to=3000, resolution=50, orient=constants.HORIZONTAL)
+        self.exposure = Scale(group1, label='exposure time(us)', from_=50, to=2000, resolution=50, orient=constants.HORIZONTAL)
         self.exposure.bind("<ButtonRelease-1>", self.set_exposure)
         self.exposure.pack(**pack_opt)
-        self.offsetDC = Scale(group1, label='DC Offset', from_=0, to=3, resolution=0.01, orient=constants.HORIZONTAL)
+        self.offsetDC = Scale(group1, label='DC Offset(v)', from_=0, to=3.3, resolution=0.01, orient=constants.HORIZONTAL)
         self.offsetDC.bind("<ButtonRelease-1>", self.set_offsetDC)
         self.offsetDC.pack(**pack_opt)
 
@@ -104,19 +106,21 @@ class FileDialog(Frame):
     def update_board_config(self):
         self.ser.reset_input_buffer()
         self.ser.write(CMD_GETEXPO)
-        pulse_num = self.ser.read(4)[2:][::-1]
+        pulse_num = self.ser.read(4)
+        pulse_num = pulse_num[2:4][::-1]
         pulse_num = int.from_bytes(pulse_num, byteorder='big')
         # pulse_num = self.ser.read(6)[2:][::-1]
         # pulse_num = int(pulse_num.decode('ascii'), 16)
-        self.exposure.set(pulse_num)
+        self.exposure.set(int(pulse_num * PULSE2EXPO))
 
-        # self.ser.write(CMD_GETDCOFFSET)
-        # offsetDC = self.ser.read(4)[2:][::-1]
-        # offsetDC = int.from_bytes(offsetDC, byteorder='big')
+        self.ser.write(CMD_GETDCOFFSET)
+        offsetDC = self.ser.read(4)
         # print(offsetDC)
-        # # offsetDC = int(offsetDC.decode('ascii'), 16)
+        offsetDC = offsetDC[2:4][::-1]
+        offsetDC = int.from_bytes(offsetDC, byteorder='big')
         # offsetDC /= 100
-        # self.offsetDC.set(offsetDC)
+        # offsetDC = offsetDC / 4096 * 3.3
+        self.offsetDC.set(offsetDC * PULSE2DCOFFSET)
             
     def find_board(self):
         if self.ser is not None and self.ser.is_open:
@@ -155,7 +159,7 @@ class FileDialog(Frame):
         return True
 
     def set_exposure(self, event=None):
-        pulse_num = self.exposure.get()
+        pulse_num = int(self.exposure.get()/PULSE2EXPO)
         cmd = CMD_SETEXPO + bytes('{:0>4}'.format(hex(pulse_num)[2:]), 'ascii')
         if self.ser is not None:
             if self.ser.is_open:
@@ -166,7 +170,7 @@ class FileDialog(Frame):
             print('new exposure pulse num: ', pulse_num)
 
     def set_offsetDC(self, event=None):
-        offsetDC = self.offsetDC.get()
+        offsetDC = int(self.offsetDC.get()/PULSE2DCOFFSET)
         cmd = CMD_SETDCOFFSET + bytes('{:0>4}'.format(hex(int(offsetDC * 100))[2:]), 'ascii')
         if self.ser is not None:
             if self.ser.is_open:
