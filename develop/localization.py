@@ -12,6 +12,7 @@ for i in range(10000):
     noise = np.random.normal(nmu, nsigma, width)
     sp_noise = np.sin(np.random.uniform(0, 2*np.pi, width))/2 + 0.5
     sig = s * sp_noise + noise
+    plt.figure(), plt.plot(sig)
     wc = np.sum(np.arange(width)  * sig) / sig.sum()
     r[i] = wc - width // 2
 

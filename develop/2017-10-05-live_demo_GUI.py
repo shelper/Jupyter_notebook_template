@@ -23,7 +23,7 @@ CMD_DEBUGSWITCH = b'!Z00030000'
 CMD_SETEXPO = b'!Z000A'
 CMD_GETEXPO = b'!Z000A0000'
 CMD_SETDCOFFSET = b'!Z0007'
-CMD_GETDCOFFSET = b'!Z0007FFFF'
+CMD_GETDCOFFSET = b'!Z00070000'
 PULSE2EXPO = 0.3734
 PULSE2DCOFFSET = 0.00080566
 
@@ -171,7 +171,7 @@ class FileDialog(Frame):
 
     def set_offsetDC(self, event=None):
         offsetDC = int(self.offsetDC.get()/PULSE2DCOFFSET)
-        cmd = CMD_SETDCOFFSET + bytes('{:0>4}'.format(hex(int(offsetDC * 100))[2:]), 'ascii')
+        cmd = CMD_SETDCOFFSET + bytes('{:0>4}'.format(hex(offsetDC)[2:]), 'ascii')
         if self.ser is not None:
             if self.ser.is_open:
                 self.ser.write(cmd)
