@@ -15,6 +15,10 @@ from tiretread import *
 plt.ion()
 
 # configurations that used in the treads detection algorithm
+CMD_IMUON = b'!Z000B0001'
+CMD_IMUOFF = b'!Z000B0000'
+CMD_RESET = b'!Z00060000'
+
 CMD_CAPTURE = b'!Z0001'
 CMD_CAPTURE1LINE = b'!Z00010001'
 CMD_FREERUNON = b'!Z00080001'
@@ -24,6 +28,7 @@ CMD_SETEXPO = b'!Z000A'
 CMD_GETEXPO = b'!Z000A0000'
 CMD_SETDCOFFSET = b'!Z0007'
 CMD_GETDCOFFSET = b'!Z00070000'
+CMD_GETVERSION = b'!Z00040000'
 PULSE2EXPO = 0.3734
 PULSE2DCOFFSET = 0.00080566
 
@@ -48,19 +53,24 @@ class FileDialog(Frame):
         self.timeout = 3
         self.img = None
         self.img_file = StringVar()
+        self.imu_on = IntVar()
         self.cont_capture = IntVar()
         self.img_from_file = IntVar()
         self.port = StringVar()
+        self.fw_version = StringVar()
         # self.ser_closed = True
 
         Frame.__init__(self, root)
         pack_opt = {'fill': constants.BOTH, 'padx': 10, 'pady': 5}
 
         group1 = LabelFrame(self, text="Board", padx=5, pady=5)
-        group1.pack(padx=10, pady=10)
         Label(group1, text="COM Port Name").pack(side=constants.TOP, fill=constants.X)
         Entry(group1, textvariable=self.port).pack(side=constants.TOP, fill=constants.X)
+        Entry(group1, textvariable=self.fw_version).pack(side=constants.TOP, fill=constants.X)
+        self.fw_version.set('FW ver:')
         # self.port.set('COM11')
+        Checkbutton(group1, text="enable IMU", variable=self.imu_on).pack(**pack_opt)
+        self.imu_on.set(True)
         Button(group1, text='FindBoard', relief=constants.GROOVE, 
             font=('sans', '10', 'bold'), command=self.find_board).pack(**pack_opt)
         self.exposure = Scale(group1, label='exposure time(us)', from_=50, to=2000, resolution=50, orient=constants.HORIZONTAL)
@@ -69,6 +79,7 @@ class FileDialog(Frame):
         self.offsetDC = Scale(group1, label='DC Offset(v)', from_=0, to=3.3, resolution=0.01, orient=constants.HORIZONTAL)
         self.offsetDC.bind("<ButtonRelease-1>", self.set_offsetDC)
         self.offsetDC.pack(**pack_opt)
+        group1.pack(padx=10, pady=10)
 
         group2 = LabelFrame(self, text="Capture", padx=5, pady=5)
         group2.pack(padx=10, pady=10)
@@ -104,7 +115,25 @@ class FileDialog(Frame):
         print('debug toggled')
 
     def update_board_config(self):
-        self.ser.reset_input_buffer()
+        if self.imu_on.get():
+        #     self.ser.write(CMD_IMUON)
+        #     print('imu id:', self.ser.read(6))
+        #     self.ser.write(CMD_IMUOFF)
+        #     self.ser.reset_input_buffer()
+        #     # imu_data = self.ser.read(120)
+        #     # print(imu_data)
+            print('IMU ON')
+        else:
+            self.ser.write(CMD_IMUOFF)
+        #     imu_data = self.ser.read(10)
+        #     print(imu_data)
+            print('IMU OFF')
+        
+        self.ser.write(CMD_GETVERSION)
+        version = self.ser.read(4)
+        version = version[2:4][::-1]
+        version = int.from_bytes(version, byteorder='big')
+        self.fw_version.set("FW ver: " + str(version))
         self.ser.write(CMD_GETEXPO)
         pulse_num = self.ser.read(4)
         pulse_num = pulse_num[2:4][::-1]
@@ -121,7 +150,7 @@ class FileDialog(Frame):
         # offsetDC /= 100
         # offsetDC = offsetDC / 4096 * 3.3
         self.offsetDC.set(offsetDC * PULSE2DCOFFSET)
-            
+    
     def find_board(self):
         if self.ser is not None and self.ser.is_open:
             self.update_board_config()
@@ -204,7 +233,6 @@ class FileDialog(Frame):
             data_size = pix_num * line_num + offset
             data = np.fromstring(self.ser.read(data_size), dtype='uint8')
             # data = np.fromstring(self.ser.readall(), dtype='uint8')
-            # self.ser.reset_input_buffer()
             if len(data) == data_size:
                 data = data[offset:] if line_num == 1 else data[offset:].reshape(line_num, pix_num)
                 return data
@@ -287,6 +315,7 @@ class FileDialog(Frame):
                     else:
                         break
             self.ser.write(CMD_FREERUNOFF)
+            self.ser.write(CMD_RESET)
             print('exit free run')
 
     def draw_treads(self, event=None):
