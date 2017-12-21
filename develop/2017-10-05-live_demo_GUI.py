@@ -1,6 +1,6 @@
 from tkinter import constants, filedialog, Button, Frame, Tk, Entry, Label,\
     StringVar, ttk, IntVar, Checkbutton, messagebox, Checkbutton, Scale, \
-    LabelFrame
+    LabelFrame, W, E
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -58,28 +58,29 @@ class FileDialog(Frame):
         self.img_from_file = IntVar()
         self.port = StringVar()
         self.fw_version = StringVar()
-        # self.ser_closed = True
+        self.imu_on.set(True)
+        self.cont_capture.set(True)
+        self.img_from_file.set(False)
 
         Frame.__init__(self, root)
         pack_opt = {'fill': constants.BOTH, 'padx': 10, 'pady': 5}
 
         group1 = LabelFrame(self, text="Board", padx=5, pady=5)
-        Label(group1, text="COM Port Name").pack(side=constants.TOP, fill=constants.X)
-        Entry(group1, textvariable=self.port).pack(side=constants.TOP, fill=constants.X)
-        Entry(group1, textvariable=self.fw_version).pack(side=constants.TOP, fill=constants.X)
-        self.fw_version.set('FW ver:')
-        # self.port.set('COM11')
-        Checkbutton(group1, text="enable IMU", variable=self.imu_on).pack(**pack_opt)
-        self.imu_on.set(True)
+        group1.pack(padx=10, pady=10)
+
+        Label(group1, text="Port:").grid(row=0, column=0)
+        Entry(group1, textvariable=self.port, width=14).grid(row=0, column=1)
+        Label(group1, text="FW ver:").grid(row=1, column=0)
+        Entry(group1, textvariable=self.fw_version, width=14).grid(row=1, column=1)
+        Checkbutton(group1, text="enable IMU", variable=self.imu_on).grid(row=2, columnspan=2, sticky=W+E)
         Button(group1, text='FindBoard', relief=constants.GROOVE, 
-            font=('sans', '10', 'bold'), command=self.find_board).pack(**pack_opt)
+            font=('sans', '10', 'bold'), command=self.find_board).grid(row=3, columnspan=2, sticky=W+E)
         self.exposure = Scale(group1, label='exposure time(us)', from_=50, to=2000, resolution=50, orient=constants.HORIZONTAL)
         self.exposure.bind("<ButtonRelease-1>", self.set_exposure)
-        self.exposure.pack(**pack_opt)
+        self.exposure.grid(row=4, columnspan=2, sticky=W+E)
         self.offsetDC = Scale(group1, label='DC Offset(v)', from_=0, to=3.3, resolution=0.01, orient=constants.HORIZONTAL)
         self.offsetDC.bind("<ButtonRelease-1>", self.set_offsetDC)
-        self.offsetDC.pack(**pack_opt)
-        group1.pack(padx=10, pady=10)
+        self.offsetDC.grid(row=5, columnspan=2, sticky=W+E)
 
         group2 = LabelFrame(self, text="Capture", padx=5, pady=5)
         group2.pack(padx=10, pady=10)
@@ -93,12 +94,10 @@ class FileDialog(Frame):
                 font=('sans', '10', 'bold'), command=self.free_run).pack(**pack_opt)
         Label(group2, text="Save image as").pack(side=constants.TOP, fill=constants.X)
         Entry(group2, textvariable=self.img_file).pack(side=constants.TOP, fill=constants.X)
-        # self.img_file.set('')
 
         group3 = LabelFrame(self, text="Processing", padx=5, pady=5)
         group3.pack(padx=10, pady=10)
         Checkbutton(group3, text="image from file", variable=self.img_from_file).pack(**pack_opt)
-        self.img_from_file.set(False)
         self.offsetBL = Scale(group3, label='baseline offset', from_=-1, to=1, resolution=0.01, orient=constants.HORIZONTAL)
         self.offsetBL.bind("<ButtonRelease-1>", self.draw_treads)
         self.offsetBL.pack(**pack_opt)
@@ -130,10 +129,9 @@ class FileDialog(Frame):
             print('IMU OFF')
         
         self.ser.write(CMD_GETVERSION)
-        version = self.ser.read(4)
-        version = version[2:4][::-1]
-        version = int.from_bytes(version, byteorder='big')
-        self.fw_version.set("FW ver: " + str(version))
+        version = self.ser.read(4)[2:4][::-1]
+        # version = int.from_bytes(version, byteorder='big')
+        self.fw_version.set(version.hex())
         self.ser.write(CMD_GETEXPO)
         pulse_num = self.ser.read(4)
         pulse_num = pulse_num[2:4][::-1]
