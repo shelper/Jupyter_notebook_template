@@ -11,13 +11,17 @@ import serial
 from serial.tools import list_ports
 # import time
 from tiretread import *
+import configparser
 
 plt.ion()
 
 # configurations that used in the treads detection algorithm
 CMD_IMUON = b'!Z000B0001'
 CMD_IMUOFF = b'!Z000B0000'
+CMD_FINDIMU = b'!Z000BFFE'
+CMD_GETIMU = b'!Z000BFFD'
 CMD_RESET = b'!Z00060000'
+CMD_GET_LAST_SWIPE = b'!Z00030000'
 
 CMD_CAPTURE = b'!Z0001'
 CMD_CAPTURE1LINE = b'!Z00010001'
@@ -61,6 +65,7 @@ class FileDialog(Frame):
         self.imu_on.set(True)
         self.cont_capture.set(True)
         self.img_from_file.set(False)
+        self.settings = configparser.ConfigParser()
 
         Frame.__init__(self, root)
         pack_opt = {'fill': constants.BOTH, 'padx': 10, 'pady': 5}
@@ -104,6 +109,14 @@ class FileDialog(Frame):
         self.intensityBL = Scale(group3, label='Intensity baseline', from_=0, to=100, resolution=1, orient=constants.HORIZONTAL)
         self.intensityBL.bind("<ButtonRelease-1>", self.draw_treads)
         self.intensityBL.pack(**pack_opt)
+
+        try:
+            self.settings.read('config.ini')
+            self.port.set(self.settings.get('board', 'port'))
+        except:
+            pass
+
+        self.find_board()
        
     def toggle_board_debug(self):
         if self.ser.is_open:
@@ -115,22 +128,23 @@ class FileDialog(Frame):
 
     def update_board_config(self):
         if self.imu_on.get():
-        #     self.ser.write(CMD_IMUON)
-        #     print('imu id:', self.ser.read(6))
-        #     self.ser.write(CMD_IMUOFF)
-        #     self.ser.reset_input_buffer()
-        #     # imu_data = self.ser.read(120)
-        #     # print(imu_data)
+            # self.ser.write(CMD_IMUON)
+            # print('imu id:', self.ser.read(6))
+            # self.ser.write(CMD_IMUOFF)
+            # self.ser.write(CMD_GETEXPO)
+            # print(self.ser.read(12))
+            # self.ser.reset_input_buffer()
+            # imu_data = self.ser.read(120)
+            # print(imu_data)
             print('IMU ON')
         else:
-            self.ser.write(CMD_IMUOFF)
+            # self.ser.write(CMD_IMUOFF)
         #     imu_data = self.ser.read(10)
         #     print(imu_data)
             print('IMU OFF')
         
         self.ser.write(CMD_GETVERSION)
-        version = self.ser.read(4)[2:4][::-1]
-        # version = int.from_bytes(version, byteorder='big')
+        version = self.ser.read(4)[2:4]
         self.fw_version.set(version.hex())
         self.ser.write(CMD_GETEXPO)
         pulse_num = self.ser.read(4)
@@ -158,6 +172,11 @@ class FileDialog(Frame):
                 with serial.Serial(port, self.baudrate, timeout=self.timeout) as self.ser:
                     self.port.set(port)
                     self.update_board_config()
+
+                self.settings['board']['port'] = port
+                with open('config.ini', 'w') as config_file:
+                    self.settings.write(config_file)
+
             except StopIteration:
                 messagebox.showinfo("warning", "no COM port found for the device")
                 return False
@@ -174,6 +193,10 @@ class FileDialog(Frame):
                     with serial.Serial(port, self.baudrate, timeout=self.timeout) as self.ser:
                         self.port.set(port)
                         self.update_board_config()
+
+                    self.settings['board']['port'] = port
+                    with open('config.ini', 'w') as config_file:
+                        self.settings.write(config_file)
                 except StopIteration:
                     messagebox.showinfo("warning", "no COM port found for the device")
                     self.port.set('')
@@ -226,6 +249,7 @@ class FileDialog(Frame):
         ack_received = self.ser.read(len(ack))
         if ack_received != b'!z':
             messagebox.showinfo('warning', 'received ack {} != {}'.format(ack_received, ack))
+            # self.ser.reset_input_buffer()
             return None
         else:
             data_size = pix_num * line_num + offset
@@ -245,21 +269,26 @@ class FileDialog(Frame):
                 axes.clear()
                 axes.set_autoscaley_on(False)
                 axes.set_ylim([0, 255])
-                data = self.capture(line_num)
-                if data is not None:
-                    line_idx = 1
-                    line, = axes.plot(data)
-                    while plt.fignum_exists('line') and self.cont_capture.get():
-                        data = self.capture(line_num)
-                        if data is not None:
-                            line_idx += 1
-                            print('capturing {} line'.format(line_idx))
-                            # line.set_label('capturing {} line'.format(line_idx))
-                            line.set_ydata(data)
-                            plt.pause(0.01)
-                            self.update()
+                line_idx = 0
+                while plt.fignum_exists('line'):
+                    data = self.capture(line_num)
+                    if data is not None:
+                        line_idx += 1
+                        if line_idx == 1:
+                            line, = axes.plot(data)
                         else:
-                            break
+                            line.set_ydata(data)
+                        # print('capturing {} line'.format(line_idx))
+                        # line.set_label('capturing {} line'.format(line_idx))
+                        plt.pause(0.01)
+                        self.update()
+                    else:
+                        break
+                    
+                    if self.cont_capture.get():
+                        continue
+                    else:
+                        break
 
     def frame_scan(self, line_num=1000):
         with serial.Serial(self.port.get(), self.baudrate, timeout=self.timeout) as self.ser:
@@ -268,53 +297,57 @@ class FileDialog(Frame):
             plt.subplot(gs[:, 0])
             plt.subplot(gs[0, 1])
             plt.subplot(gs[1:,1])
-            self.img = self.capture(line_num)
-            if self.img is not None:
-                frame_idx = 1
-                self.save_rawdata()
-                self.draw_treads()
-                while plt.fignum_exists('Frame') and self.cont_capture.get():
-                    self.img = self.capture(line_num)
-                    if self.img is not None:
-                        frame_idx += 1
-                        # print('capturing {} frame'.format(frame_idx))
-                        self.save_rawdata()
-                        self.draw_treads()
-                        plt.pause(0.05)
-                        self.update()
-                    else:
-                        break
-        
+            frame_idx = 0
+            while plt.fignum_exists('Frame'):
+                self.img = self.capture(line_num)
+                if self.img is not None:
+                    frame_idx += 1
+                    self.save_rawdata()
+                    self.draw_treads()
+                    # print('capturing {} frame'.format(frame_idx))
+                    plt.pause(0.05)
+                    self.update()
+                else:
+                    break
+
+                if self.cont_capture.get():
+                    continue
+                else:
+                    self.ser.reset_input_buffer()
+                    break
+    
     def free_run(self):
         with serial.Serial(self.port.get(), self.baudrate, timeout=self.timeout) as self.ser:
             self.ser.write(CMD_FREERUNON)
+            print(self.ser.read(3))
             print('turn on free run')
             fig = plt.figure('freerun')
             axes = fig.add_subplot(111)
             axes.clear()
             axes.set_autoscaley_on(False)
             axes.set_ylim([0, 255])
-            self.ser.write(CMD_CAPTURE1LINE)
-            self.ser.read(2)
-            data = np.fromstring(self.ser.read(pix_num), dtype='uint8')
-            if data is not None:
-                line, = axes.plot(data)
-                line_idx = 1
-                while plt.fignum_exists('freerun'):
-                    self.ser.reset_input_buffer()
-                    self.ser.read(2)
-                    data = np.fromstring(self.ser.read(pix_num), dtype='uint8')
-                    if data is not None:
-                        line_idx += 1
-                        # print('capturing {} line'.format(line_idx))
-                        line.set_ydata(data)
-                        plt.pause(0.01)
-                        self.update()
-                    else:
-                        break
+            line_idx = 0
+            while plt.fignum_exists('freerun'):
+                # self.ser.reset_input_buffer()
+                self.ser.write(CMD_CAPTURE1LINE)
+                print(self.ser.read(2))
+                data = np.fromstring(self.ser.read(pix_num), dtype='uint8')
+                line_idx += 1
+                if line_idx == 1:
+                    line, = axes.plot(data)
+                else:
+                    line.set_ydata(data)
+                plt.pause(0.01)
+                self.update()
+
             self.ser.write(CMD_FREERUNOFF)
-            self.ser.write(CMD_RESET)
             print('exit free run')
+            data = np.fromstring(self.ser.read(pix_num), dtype='uint8')
+            print(data)
+            # self.ser.write(CMD_RESET)
+            # print('board resetted')
+            # data = np.fromstring(self.ser.read(pix_num), dtype='uint8')
+            # print(data)
 
     def draw_treads(self, event=None):
         if self.img_from_file.get():
