@@ -272,15 +272,15 @@ class FileDialog(Frame):
                     # print(self.ser.read(4))
             print('new DC offset set to {} volts'.format(offsetDC))
 
-    def save_rawdata(self):
-        fname = self.img_file.get().strip()
-        if fname:
-            Image.fromarray(self.img).save(fname + '.bmp', 'bmp')
-            try:
-                fname = '{:04d}'.format(int(fname) + 1)
-                self.img_file.set(fname)
-            except ValueError:
-                pass
+    # def save_rawdata(self):
+    #     fname = self.img_file.get().strip()
+    #     if fname:
+    #         Image.fromarray(self.img).save(fname + '.bmp', 'bmp')
+    #         try:
+    #             fname = '{:04d}'.format(int(fname) + 1)
+    #             self.img_file.set(fname)
+    #         except ValueError:
+    #             pass
 
     def capture(self, line_num, ack='!z', offset=0):
         self.ser.reset_input_buffer() # has to clear up the buffer as the results has redundant data  
@@ -350,23 +350,33 @@ class FileDialog(Frame):
                     else:
                         print("IMU found: ", self.imu_id)
 
+                    # imu data acc x, y, z, temp, gyro x, y, z
                     self.ser.write(CMD_GETIMU)
-                    self.imu_header = np.fromstring(self.ser.read(16))
-                    self.imu_data = np.fromstring(self.ser.read( line_num // 5 * 14), dtype='uint16')
+                    self.imu_header = self.ser.read(16)
+                    self.imu_data = np.fromstring(self.ser.read(line_num // 5 * 14), dtype='int16')
                     self.imu_data.byteswap(True)
-                    self.imu_data //= 256
-                    self.imu_data = self.imu_data.astype('uint8')
+                    # self.imu_data //= 256
+                    # self.imu_data = self.imu_data.astype('int8')
+                    self.imu_data = self.imu_data.reshape(-1, 7)
+                    self.imu_data = self.imu_data.T.reshape(-1)
                     # self.mix_img_imu()
                     if frame_idx == 1:
                         fig = plt.figure('imu')
                         axes = fig.add_subplot(111)
                         axes.set_autoscaley_on(False)
-                        axes.set_ylim([0, 255])
+                        axes.set_ylim([-32768, 32767])
                         line, = axes.plot(self.imu_data)
                     else:
                         line.set_ydata(self.imu_data)
             
-                self.save_rawdata()
+                fname = self.img_file.get().strip()
+                if fname:
+                    Image.fromarray(self.img).save(fname + '.bmp', 'bmp')
+                    try:
+                        fname = '{:04d}'.format(int(fname) + 1)
+                        self.img_file.set(fname)
+                    except ValueError:
+                        pass
                 self.draw_treads()
                 plt.pause(0.05)
                 self.update()
@@ -383,7 +393,6 @@ class FileDialog(Frame):
                 if not self.cont_capture.get():
                     break
 
-
     def mix_img_imu(self, hstack=False):
         line_num = self.img.shape[0]
         imu_num = line_num // 5
@@ -394,7 +403,6 @@ class FileDialog(Frame):
             x = np.arange(0, imu_num, 0.2)
             xp = np.arange(0, imu_num)
             self.img[:, -i - 1] = np.interp(x, xp, fp)
-
 
     def free_run(self):
         with serial.Serial(self.port.get(), self.baudrate, timeout=self.timeout) as self.ser:
@@ -448,7 +456,8 @@ class FileDialog(Frame):
         self.img2[self.img2 < 0] = 0
         self.img2[self.img2 > 127] = 0
         self.img2 = self.img2.astype(np.uint8)
-        ax1.imshow(self.img2, vmin=0, vmax=255)
+
+        ax1.imshow(self.img, vmin=0, vmax=255)
         profile = get_profile(self.img2, spike_size, filt_size, fit_order)
         profile_diff = profile[:-edge_size] - profile[edge_size:]
         treads_edge = find_treads(profile_diff, edge_size, win_size, max_treads_num, min_tread_width, max_tread_width)
